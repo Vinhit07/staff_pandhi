@@ -3,8 +3,12 @@ import { Check, X, Package, Clock, AlertTriangle, RefreshCw } from 'lucide-react
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import toast from 'react-hot-toast';
 import { orderService, inventoryService } from '../services';
+import { useAuth } from '../hooks/useAuth';
 
 export const Notifications = () => {
+    const { user } = useAuth();
+    const outletId = user?.outlet?.id;
+
     const [activeTab, setActiveTab] = useState('orders');
     const [orders, setOrders] = useState([]);
     const [lowStock, setLowStock] = useState([]);
@@ -36,8 +40,9 @@ export const Notifications = () => {
     };
 
     const fetchPendingOrders = async () => {
+        if (!outletId) return;
         try {
-            const response = await orderService.getOrders({ status: 'pending' });
+            const response = await orderService.getOrders(outletId, { status: 'pending' });
             if (response.success && response.data) {
                 // Transform backend data to match UI format
                 const formattedOrders = (Array.isArray(response.data) ? response.data : []).map(order => ({
@@ -56,8 +61,9 @@ export const Notifications = () => {
     };
 
     const fetchLowStock = async () => {
+        if (!outletId) return;
         try {
-            const response = await inventoryService.getLowStock();
+            const response = await inventoryService.getLowStock(outletId);
             if (response.success && response.data) {
                 // Transform backend data to match UI format
                 const formattedStock = (Array.isArray(response.data) ? response.data : []).map(item => ({

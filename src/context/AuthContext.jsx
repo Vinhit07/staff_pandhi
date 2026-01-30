@@ -127,7 +127,15 @@ export const AuthProvider = ({ children }) => {
 
     // Check auth status on mount
     useEffect(() => {
-        checkAuthStatus();
+        const token = localStorage.getItem('token');
+        if (token) {
+            // Token exists - verify it with backend
+            checkAuthStatus();
+        } else {
+            // No token - immediately set to logged out (no API call needed)
+            console.log('No token found - setting to logged out state');
+            dispatch({ type: ACTION_TYPES.LOGOUT });
+        }
     }, []);
 
     // Check authentication status

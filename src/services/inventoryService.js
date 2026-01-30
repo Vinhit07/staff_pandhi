@@ -65,10 +65,11 @@ export const inventoryService = {
 
     /**
      * Get low stock items
+     * @param {string} outletId - Outlet ID
      * @returns {Promise<Object>} - Items below minimum threshold
      */
-    getLowStock: async () => {
-        return await apiRequest(API_ENDPOINTS.GET_STOCKS, {
+    getLowStock: async (outletId) => {
+        return await apiRequest(`${API_ENDPOINTS.GET_STOCKS}/${outletId}/`, {
             method: 'GET',
         });
     },

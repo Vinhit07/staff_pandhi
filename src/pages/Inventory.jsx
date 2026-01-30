@@ -8,8 +8,8 @@ import { useAuth } from '../hooks/useAuth';
 import { inventoryService } from '../services';
 
 export const Inventory = () => {
-    const { outlet } = useAuth();
-    const outletId = outlet?.id;
+    const { user } = useAuth();
+    const outletId = user?.outlet?.id;
 
     const [activeTab, setActiveTab] = useState('stock');
     const [inventory, setInventory] = useState([]);

@@ -59,8 +59,8 @@ export const SignIn = () => {
 
     const fillDemoCredentials = () => {
         setFormData({
-            email: 'staff@hungerbox.com',
-            password: 'password',
+            email: 'vinith11107@gmail.com',
+            password: 'Vinhit07&',
         });
         setFormErrors({});
     };

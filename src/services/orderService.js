@@ -17,12 +17,13 @@ export const orderService = {
 
     /**
      * Get orders with optional filters
+     * @param {string} outletId - Outlet ID
      * @param {Object} filters - Optional filters (status, date range, etc.)
      * @returns {Promise<Object>} - List of orders
      */
-    getOrders: async (filters = {}) => {
+    getOrders: async (outletId, filters = {}) => {
         const params = new URLSearchParams(filters);
-        return await apiRequest(`${API_ENDPOINTS.RECENT_ORDERS}?${params.toString()}`, {
+        return await apiRequest(`${API_ENDPOINTS.RECENT_ORDERS}/${outletId}/?${params.toString()}`, {
             method: 'GET',
         });
     },
