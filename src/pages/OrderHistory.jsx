@@ -1,22 +1,19 @@
-import { useState } from 'react';
-import { Search, Download, Calendar, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Calendar, Eye, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../components/ui';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/constants';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-
-// Mock data
-const MOCK_ORDERS = [
-    { id: '1001', customer: 'Rahul Sharma', date: '2026-01-28T10:30:00', items: [{ name: 'Butter Chicken', qty: 1, price: 250 }], total: 250, status: 'DELIVERED', paymentMethod: 'CASH' },
-    { id: '1002', customer: 'Priya Patel', date: '2026-01-28T11:15:00', items: [{ name: 'Veg Thali', qty: 2, price: 240 }], total: 240, status: 'DELIVERED', paymentMethod: 'UPI' },
-    { id: '1003', customer: 'Amit Kumar', date: '2026-01-27T12:00:00', items: [{ name: 'Biryani', qty: 1, price: 180 }], total: 180, status: 'CANCELLED', paymentMethod: 'CARD' },
-    { id: '1004', customer: 'Sneha Reddy', date: '2026-01-27T09:45:00', items: [{ name: 'Samosa', qty: 4, price: 80 }], total: 80, status: 'DELIVERED', paymentMethod: 'CASH' },
-    { id: '1005', customer: 'Vikram Singh', date: '2026-01-26T14:20:00', items: [{ name: 'Cold Coffee', qty: 2, price: 180 }], total: 180, status: 'DELIVERED', paymentMethod: 'UPI' },
-];
+import { useAuth } from '../hooks/useAuth';
+import { orderService } from '../services';
 
 export const OrderHistory = () => {
-    const [orders] = useState(MOCK_ORDERS);
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
+
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [fromDate, setFromDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
     const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
@@ -25,25 +22,48 @@ export const OrderHistory = () => {
     const [detailsModal, setDetailsModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
+    // Fetch order history on mount or when filters change
+    useEffect(() => {
+        fetchOrderHistory();
+    }, [outletId, fromDate, toDate]);
+
+    const fetchOrderHistory = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const data = await orderService.getOrderHistory({
+                outletId,
+                from: fromDate,
+                to: toDate,
+            });
+            setOrders(data.orders || []);
+        } catch (error) {
+            console.error('Error fetching order history:', error);
+            toast.error('Failed to load order history');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Filter orders
     const filteredOrders = orders.filter(order => {
         const matchesSearch =
-            order.id.includes(searchTerm) ||
-            order.customer.toLowerCase().includes(searchTerm.toLowerCase());
-        const orderDate = dayjs(order.date);
-        const matchesDate = orderDate.isAfter(dayjs(fromDate).subtract(1, 'day')) &&
-            orderDate.isBefore(dayjs(toDate).add(1, 'day'));
-        return matchesSearch && matchesDate;
+            order.billNumber?.toString().includes(searchTerm) ||
+            order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
     });
 
     // Export to Excel
     const handleExport = () => {
         const data = filteredOrders.map(order => ({
-            'Order ID': order.id,
-            'Customer': order.customer,
-            'Date': formatDateTime(order.date),
-            'Items': order.items.map(i => `${i.name} x${i.qty}`).join(', '),
-            'Total': order.total,
+            'Order ID': order.billNumber,
+            'Customer': order.customerName,
+            'Date': formatDateTime(order.createdAt),
+            'Total': order.totalAmount,
             'Status': order.status,
             'Payment': order.paymentMethod,
         }));
@@ -63,10 +83,10 @@ export const OrderHistory = () => {
 
     // Status badge variant
     const getStatusVariant = (status) => {
-        switch (status) {
-            case 'DELIVERED': return 'success';
+        switch (status?.toUpperCase()) {
+            case 'DELIVERED': case 'COMPLETED': return 'success';
             case 'CANCELLED': return 'destructive';
-            case 'PENDING': return 'warning';
+            case 'PENDING': case 'PREPARING': return 'warning';
             default: return 'default';
         }
     };
@@ -154,13 +174,19 @@ export const OrderHistory = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {filteredOrders.length > 0 ? (
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-8 text-center">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground inline" />
+                                        </td>
+                                    </tr>
+                                ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
-                                        <tr key={order.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">#{order.id}</td>
-                                            <td className="px-4 py-3 text-foreground">{order.customer}</td>
-                                            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.date)}</td>
-                                            <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.total)}</td>
+                                        <tr key={order.billNumber} className="hover:bg-muted/30 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-foreground">#{order.billNumber}</td>
+                                            <td className="px-4 py-3 text-foreground">{order.customerName}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
+                                            <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                                             </td>
@@ -199,7 +225,7 @@ export const OrderHistory = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Date</p>
-                                <p className="font-medium text-foreground">{formatDateTime(selectedOrder.date)}</p>
+                                <p className="font-medium text-foreground">{formatDateTime(selectedOrder.createdAt)}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Payment Method</p>

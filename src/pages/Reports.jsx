@@ -10,6 +10,8 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useAuth } from '../hooks/useAuth';
+import { reportService } from '../services';
 
 // Chart colors using Admin app theme
 const CHART_COLORS = {
@@ -23,42 +25,11 @@ const CHART_COLORS = {
     chart5: '#D7488E',
 };
 
-// Mock chart data generators
-const generateSalesTrend = (from, to) => {
-    const data = [];
-    let current = dayjs(from);
-    const end = dayjs(to);
-    while (current.isBefore(end) || current.isSame(end, 'day')) {
-        data.push({
-            date: current.format('MM/DD'),
-            revenue: Math.floor(Math.random() * 15000) + 5000,
-        });
-        current = current.add(1, 'day');
-    }
-    return data;
-};
 
-const generateOrderTypeBreakdown = () => [
-    { name: 'App Orders', value: 456, color: CHART_COLORS.primary },
-    { name: 'Manual Orders', value: 234, color: CHART_COLORS.secondary },
-];
-
-const generateCategoryBreakdown = () => [
-    { name: 'Meals', value: 45, color: CHART_COLORS.chart1 },
-    { name: 'Starters', value: 25, color: CHART_COLORS.chart2 },
-    { name: 'Beverages', value: 20, color: CHART_COLORS.chart3 },
-    { name: 'Desserts', value: 10, color: CHART_COLORS.chart4 },
-];
-
-const generateDeliveryTimeOrders = () => [
-    { slot: '11-12 PM', orders: 45 },
-    { slot: '12-1 PM', orders: 85 },
-    { slot: '1-2 PM', orders: 120 },
-    { slot: '2-3 PM', orders: 65 },
-    { slot: '3-4 PM', orders: 35 },
-];
 
 export const Reports = () => {
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
     const reportRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -73,18 +44,50 @@ export const Reports = () => {
 
     useEffect(() => {
         loadData();
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, outletId]);
 
     const loadData = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 800));
+        try {
+            // Fetch all chart data in parallel
+            const [salesData, categoryData, orderTypeData, deliveryData] = await Promise.all([
+                reportService.getSalesTrend(outletId, { from: fromDate, to: toDate }),
+                reportService.getCategoryBreakdown(outletId, { from: fromDate, to: toDate }),
+                reportService.getOrderTypeBreakdown(outletId, { from: fromDate, to: toDate }),
+                reportService.getDeliveryTimeOrders(outletId, { from: fromDate, to: toDate }),
+            ]);
 
-        setSalesTrend(generateSalesTrend(fromDate, toDate));
-        setOrderTypeBreakdown(generateOrderTypeBreakdown());
-        setCategoryBreakdown(generateCategoryBreakdown());
-        setDeliveryTimeOrders(generateDeliveryTimeOrders());
+            // Sales trend
+            setSalesTrend(salesData.data || []);
 
-        setLoading(false);
+            // Category breakdown with colors
+            const categoriesWithColors = (categoryData.data || []).map((cat, idx) => ({
+                ...cat,
+                color: Object.values(CHART_COLORS)[idx % 8],
+            }));
+            setCategoryBreakdown(categoriesWithColors);
+
+            // Order type with colors  
+            const orderTypesWithColors = (orderTypeData.data || []).map((type, idx) => ({
+                ...type,
+                color: idx === 0 ? CHART_COLORS.primary : CHART_COLORS.secondary,
+            }));
+            setOrderTypeBreakdown(orderTypesWithColors);
+
+            // Delivery time orders
+            setDeliveryTimeOrders(deliveryData.data || []);
+
+        } catch (error) {
+            console.error('Error loading report data:', error);
+            toast.error('Failed to load reports');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const setQuickRange = (days) => {

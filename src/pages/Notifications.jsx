@@ -1,48 +1,111 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, X, Package, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import toast from 'react-hot-toast';
-
-// Mock data
-const MOCK_PENDING_ORDERS = [
-    { id: '1001', customer: 'Rahul Sharma', items: ['Butter Chicken x1', 'Naan x2'], total: 350, slot: '12:00 - 12:30' },
-    { id: '1002', customer: 'Priya Patel', items: ['Veg Thali x1'], total: 180, slot: '12:00 - 12:30' },
-    { id: '1003', customer: 'Amit Kumar', items: ['Fish Curry x1', 'Rice x1', 'Lassi x1'], total: 420, slot: '12:30 - 1:00' },
-];
-
-const MOCK_LOW_STOCK = [
-    { id: 1, name: 'Chicken Breast', current: 5, minimum: 20, unit: 'kg' },
-    { id: 2, name: 'Paneer', current: 3, minimum: 15, unit: 'kg' },
-    { id: 3, name: 'Cooking Oil', current: 10, minimum: 30, unit: 'L' },
-];
+import { orderService, inventoryService } from '../services';
 
 export const Notifications = () => {
     const [activeTab, setActiveTab] = useState('orders');
-    const [orders, setOrders] = useState(MOCK_PENDING_ORDERS);
-    const [lowStock, setLowStock] = useState(MOCK_LOW_STOCK);
+    const [orders, setOrders] = useState([]);
+    const [lowStock, setLowStock] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Restock modal
     const [restockModal, setRestockModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [restockQty, setRestockQty] = useState('');
 
-    const handleRefresh = () => {
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([
+                fetchPendingOrders(),
+                fetchLowStock()
+            ]);
+        } catch (error) {
+            console.error('Error fetching notifications data:', error);
+            toast.error('Failed to load data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPendingOrders = async () => {
+        try {
+            const response = await orderService.getOrders({ status: 'pending' });
+            if (response.success && response.data) {
+                // Transform backend data to match UI format
+                const formattedOrders = (Array.isArray(response.data) ? response.data : []).map(order => ({
+                    id: order.orderId || order.id,
+                    customer: order.customerName || order.customer || 'Unknown',
+                    items: order.items?.map(item => `${item.name || item.product} x${item.quantity}`) || [],
+                    total: order.totalAmount || order.total || 0,
+                    slot: order.deliverySlot || order.slot || 'N/A'
+                }));
+                setOrders(formattedOrders);
+            }
+        } catch (error) {
+            console.error('Error fetching pending orders:', error);
+            setOrders([]);
+        }
+    };
+
+    const fetchLowStock = async () => {
+        try {
+            const response = await inventoryService.getLowStock();
+            if (response.success && response.data) {
+                // Transform backend data to match UI format
+                const formattedStock = (Array.isArray(response.data) ? response.data : []).map(item => ({
+                    id: item.id,
+                    name: item.name || item.itemName,
+                    current: item.currentStock || item.current || 0,
+                    minimum: item.minimumStock || item.minimum || 0,
+                    unit: item.unit || 'units'
+                }));
+                setLowStock(formattedStock);
+            }
+        } catch (error) {
+            console.error('Error fetching low stock:', error);
+            setLowStock([]);
+        }
+    };
+
+    const handleRefresh = async () => {
         setRefreshing(true);
-        setTimeout(() => {
-            setRefreshing(false);
-            toast.success('Data refreshed');
-        }, 500);
+        await fetchData();
+        setRefreshing(false);
+        toast.success('Data refreshed');
     };
 
-    const handleDeliver = (orderId) => {
-        setOrders(prev => prev.filter(o => o.id !== orderId));
-        toast.success(`Order #${orderId} marked as delivered`);
+    const handleDeliver = async (orderId) => {
+        try {
+            const response = await orderService.updateOrderStatus(orderId, 'delivered');
+            if (response.success) {
+                setOrders(prev => prev.filter(o => o.id !== orderId));
+                toast.success(`Order #${orderId} marked as delivered`);
+            }
+        } catch (error) {
+            console.error('Error delivering order:', error);
+            toast.error('Failed to update order status');
+        }
     };
 
-    const handleCancel = (orderId) => {
-        setOrders(prev => prev.filter(o => o.id !== orderId));
-        toast.success(`Order #${orderId} cancelled`);
+    const handleCancel = async (orderId) => {
+        try {
+            const response = await orderService.updateOrderStatus(orderId, 'cancelled');
+            if (response.success) {
+                setOrders(prev => prev.filter(o => o.id !== orderId));
+                toast.success(`Order #${orderId} cancelled`);
+            }
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            toast.error('Failed to cancel order');
+        }
     };
 
     const openRestockModal = (item) => {
@@ -51,21 +114,45 @@ export const Notifications = () => {
         setRestockModal(true);
     };
 
-    const handleRestock = () => {
+    const handleRestock = async () => {
         if (!restockQty || isNaN(restockQty)) {
             toast.error('Please enter a valid quantity');
             return;
         }
 
-        setLowStock(prev => prev.map(item =>
-            item.id === selectedItem.id
-                ? { ...item, current: item.current + parseInt(restockQty) }
-                : item
-        ).filter(item => item.current < item.minimum));
+        try {
+            const response = await inventoryService.updateStock(selectedItem.id, {
+                quantity: parseInt(restockQty),
+                action: 'add'
+            });
 
-        toast.success(`${selectedItem.name} restocked with ${restockQty} ${selectedItem.unit}`);
-        setRestockModal(false);
+            if (response.success) {
+                // Update local state
+                setLowStock(prev => prev.map(item =>
+                    item.id === selectedItem.id
+                        ? { ...item, current: item.current + parseInt(restockQty) }
+                        : item
+                ).filter(item => item.current < item.minimum));
+
+                toast.success(`${selectedItem.name} restocked with ${restockQty} ${selectedItem.unit}`);
+                setRestockModal(false);
+
+                // Refresh data to get latest from server
+                fetchLowStock();
+            }
+        } catch (error) {
+            console.error('Error restocking item:', error);
+            toast.error('Failed to restock item');
+        }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -75,7 +162,7 @@ export const Notifications = () => {
                     <h1 className="text-3xl font-bold text-foreground">App Orders</h1>
                     <p className="text-muted-foreground">Manage incoming orders and inventory alerts</p>
                 </div>
-                <Button variant="ghost" onClick={handleRefresh}>
+                <Button variant="ghost" onClick={handleRefresh} disabled={refreshing}>
                     <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>
             </div>

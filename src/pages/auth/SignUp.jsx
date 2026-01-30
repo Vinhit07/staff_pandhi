@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 export const SignUp = () => {
     const navigate = useNavigate();
-    const { signup, loading, error, clearError } = useAuth();
+    const { signUp, loading, error, clearError } = useAuth();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -63,18 +63,17 @@ export const SignUp = () => {
 
         if (!validateForm()) return;
 
-        const result = await signup(
-            formData.name,
-            formData.email,
-            formData.password,
-            formData.outletCode
-        );
-
-        if (result.success) {
-            toast.success(result.message || 'Registration successful!');
+        try {
+            await signUp({
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
+                outletCode: formData.outletCode
+            });
+            toast.success('Registration successful! Please sign in.');
             navigate(ROUTES.SIGNIN);
-        } else {
-            toast.error(result.error || 'Registration failed');
+        } catch (err) {
+            toast.error(err.message || 'Registration failed');
         }
     };
 

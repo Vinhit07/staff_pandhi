@@ -1,176 +1,265 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../utils/constants';
+// Authentication Context Provider
+// Manages global authentication state with permissions and outlet data
 
-// Mock user data for demo purposes
-const MOCK_USER = {
-    id: 1,
-    name: 'John Staff',
-    email: 'staff@hungerbox.com',
-    designation: 'Staff Member',
-    phone: '+91 9876543210',
-    imageUrl: null,
-    outlet: {
-        id: 1,
-        name: 'Main Cafeteria',
-        address: 'Building A, Ground Floor',
-    },
-    staffDetails: {
-        permissions: [
-            { type: 'BILLING', isGranted: true },
-            { type: 'INVENTORY', isGranted: true },
-            { type: 'REPORTS', isGranted: true },
-        ],
-    },
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { authService } from '../services/authService.js';
+
+const AuthContext = createContext();
+
+// Action types
+const ACTION_TYPES = {
+    LOADING: 'LOADING',
+    LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+    UPDATE_PERMISSIONS: 'UPDATE_PERMISSIONS',
+    LOGOUT: 'LOGOUT',
+    ERROR: 'ERROR',
+    CLEAR_ERROR: 'CLEAR_ERROR',
 };
 
-export const AuthContext = createContext(null);
+// Reducer to manage auth state
+const authReducer = (state, action) => {
+    switch (action.type) {
+        case ACTION_TYPES.LOADING:
+            return { ...state, loading: true, error: null };
 
+        case ACTION_TYPES.LOGIN_SUCCESS:
+            return {
+                ...state,
+                loading: false,
+                isAuthenticated: true,
+                user: action.payload.user,
+                outlet: action.payload.outlet,
+                permissions: action.payload.permissions,
+                error: null,
+            };
+
+        case ACTION_TYPES.UPDATE_PERMISSIONS:
+            return {
+                ...state,
+                permissions: action.payload.permissions,
+                user: action.payload.user,
+            };
+
+        case ACTION_TYPES.LOGOUT:
+            return {
+                ...state,
+                loading: false,
+                isAuthenticated: false,
+                user: null,
+                outlet: null,
+                permissions: [],
+                error: null,
+            };
+
+        case ACTION_TYPES.ERROR:
+            return {
+                ...state,
+                loading: false,
+                error: action.payload,
+            };
+
+        case ACTION_TYPES.CLEAR_ERROR:
+            return { ...state, error: null };
+
+        default:
+            return state;
+    }
+};
+
+// Initial state
+const initialState = {
+    isAuthenticated: false,
+    user: null,
+    outlet: null,
+    permissions: [],
+    loading: true,
+    error: null,
+};
+
+/**
+ * AuthProvider Component
+ * Wraps the application to provide auth state and methods
+ */
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [outlet, setOutlet] = useState(null);
-    const [permissions, setPermissions] = useState([]);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [state, dispatch] = useReducer(authReducer, initialState);
 
-    // Check for existing session on mount
-    useEffect(() => {
-        const initAuth = () => {
-            const token = localStorage.getItem('token');
-            const storedUser = localStorage.getItem('user');
-            const storedOutlet = localStorage.getItem('outletDetails');
-
-            if (token && storedUser) {
-                try {
-                    const userData = JSON.parse(storedUser);
-                    const outletData = storedOutlet ? JSON.parse(storedOutlet) : null;
-
-                    setUser(userData);
-                    setOutlet(outletData || userData.outlet);
-                    setPermissions(userData.staffDetails?.permissions || []);
-                    setIsAuthenticated(true);
-                } catch (e) {
-                    console.error('Error parsing stored auth data:', e);
-                    clearAuth();
-                }
-            }
-            setLoading(false);
-        };
-
-        initAuth();
+    // Helper: Clear error
+    const clearError = useCallback(() => {
+        dispatch({ type: ACTION_TYPES.CLEAR_ERROR });
     }, []);
 
-    const clearAuth = useCallback(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('outletDetails');
-        setUser(null);
-        setOutlet(null);
-        setPermissions([]);
-        setIsAuthenticated(false);
-        setError(null);
-    }, []);
-
-    const login = useCallback(async (email, password) => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            // Mock authentication - in production, call API
-            // const response = await authService.signIn(email, password);
-
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            // Mock validation
-            if (email === 'staff@hungerbox.com' && password === 'password') {
-                const userData = { ...MOCK_USER, email };
-                const token = 'mock-jwt-token-' + Date.now();
-
-                localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify(userData));
-                localStorage.setItem('outletDetails', JSON.stringify(userData.outlet));
-
-                setUser(userData);
-                setOutlet(userData.outlet);
-                setPermissions(userData.staffDetails?.permissions || []);
-                setIsAuthenticated(true);
-
-                return { success: true, user: userData };
-            } else {
-                throw new Error('Invalid email or password');
-            }
-        } catch (err) {
-            setError(err.message);
-            return { success: false, error: err.message };
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const signup = useCallback(async (name, email, password, outletCode) => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            // Mock registration - in production, call API
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            // Mock validation
-            if (outletCode !== 'OUTLET001') {
-                throw new Error('Invalid outlet code');
-            }
-
-            return { success: true, message: 'Registration successful! Please sign in.' };
-        } catch (err) {
-            setError(err.message);
-            return { success: false, error: err.message };
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const logout = useCallback(() => {
-        clearAuth();
-    }, [clearAuth]);
-
+    // Helper: Check if user has specific permission
     const hasPermission = useCallback((permissionType) => {
-        return permissions.some(
-            perm => perm.type === permissionType && perm.isGranted === true
+        return state.permissions.some(
+            (perm) => perm.type === permissionType && perm.isGranted === true
         );
-    }, [permissions]);
+    }, [state.permissions]);
 
-    const updateProfile = useCallback(async (profileData) => {
-        setLoading(true);
+    // Helper: Get outlet details from localStorage
+    const getStoredOutletDetails = useCallback(() => {
         try {
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            const updatedUser = { ...user, ...profileData };
-            setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-
-            return { success: true };
-        } catch (err) {
-            return { success: false, error: err.message };
-        } finally {
-            setLoading(false);
+            const storedOutlet = localStorage.getItem('outletDetails');
+            return storedOutlet ? JSON.parse(storedOutlet) : null;
+        } catch (error) {
+            console.error('Error parsing stored outlet details:', error);
+            return null;
         }
-    }, [user]);
+    }, []);
+
+    // Helper: Store outlet details in localStorage
+    const storeOutletDetails = useCallback((outletData) => {
+        try {
+            localStorage.setItem('outletDetails', JSON.stringify(outletData));
+        } catch (error) {
+            console.error('Error storing outlet details:', error);
+        }
+    }, []);
+
+    // Helper: Clear all stored data
+    const clearStoredData = useCallback(() => {
+        try {
+            localStorage.removeItem('outletDetails');
+            localStorage.removeItem('token');
+        } catch (error) {
+            console.error('Error clearing stored data:', error);
+        }
+    }, []);
+
+    // Check auth status on mount
+    useEffect(() => {
+        checkAuthStatus();
+    }, []);
+
+    // Check authentication status
+    const checkAuthStatus = async () => {
+        dispatch({ type: ACTION_TYPES.LOADING });
+        try {
+            const response = await authService.checkAuth();
+            if (response && response.user) {
+                const userData = {
+                    user: response.user,
+                    outlet: response.user.outlet,
+                    permissions: response.user.staffDetails?.permissions || [],
+                };
+
+                // Store outlet details in localStorage
+                if (response.user.outlet) {
+                    storeOutletDetails(response.user.outlet);
+                }
+
+                dispatch({ type: ACTION_TYPES.LOGIN_SUCCESS, payload: userData });
+            } else {
+                clearStoredData();
+                dispatch({ type: ACTION_TYPES.LOGOUT });
+            }
+        } catch (error) {
+            clearStoredData();
+            dispatch({ type: ACTION_TYPES.LOGOUT });
+        }
+    };
+
+    // Refresh permissions without full re-authentication
+    const refreshPermissions = useCallback(async () => {
+        if (!state.isAuthenticated) return;
+
+        try {
+            const response = await authService.checkAuth();
+            if (response && response.user) {
+                const userData = {
+                    user: response.user,
+                    permissions: response.user.staffDetails?.permissions || [],
+                };
+                dispatch({ type: ACTION_TYPES.UPDATE_PERMISSIONS, payload: userData });
+            }
+        } catch (error) {
+            console.error('Error refreshing permissions:', error);
+        }
+    }, [state.isAuthenticated]);
+
+    // Sign up
+    const signUp = async (userData) => {
+        dispatch({ type: ACTION_TYPES.LOADING });
+        try {
+            // Clear any existing data first
+            clearStoredData();
+
+            const response = await authService.signUp(userData);
+            const loginData = {
+                user: response.user,
+                outlet: response.user.outlet,
+                permissions: response.user.staffDetails?.permissions || [],
+            };
+
+            // Store outlet details in localStorage
+            if (response.user.outlet) {
+                storeOutletDetails(response.user.outlet);
+            }
+
+            // Note: Don't auto-login on signup - let user signin separately
+
+            return response;
+        } catch (error) {
+            dispatch({ type: ACTION_TYPES.ERROR, payload: error.message });
+            throw error;
+        }
+    };
+
+    // Sign in
+    const signIn = async (credentials) => {
+        dispatch({ type: ACTION_TYPES.LOADING });
+        try {
+            // Clear any existing data first
+            clearStoredData();
+
+            const response = await authService.signIn(credentials);
+            console.log('SignIn success:', response);
+
+            const loginData = {
+                user: response.user,
+                outlet: response.user.outlet,
+                permissions: response.user.staffDetails?.permissions || [],
+            };
+
+            // Store outlet details in localStorage
+            if (response.user.outlet) {
+                storeOutletDetails(response.user.outlet);
+                console.log('Outlet details stored in localStorage:', response.user.outlet);
+            }
+
+            dispatch({ type: ACTION_TYPES.LOGIN_SUCCESS, payload: loginData });
+            return response;
+        } catch (error) {
+            console.error('SignIn error:', error);
+            dispatch({ type: ACTION_TYPES.ERROR, payload: error.message });
+            throw error;
+        }
+    };
+
+    // Sign out
+    const signOut = async () => {
+        dispatch({ type: ACTION_TYPES.LOADING });
+        try {
+            await authService.signOut();
+            // Clear all stored data
+            clearStoredData();
+            dispatch({ type: ACTION_TYPES.LOGOUT });
+        } catch (error) {
+            dispatch({ type: ACTION_TYPES.ERROR, payload: error.message });
+            // Clear stored data even if signout fails
+            clearStoredData();
+            dispatch({ type: ACTION_TYPES.LOGOUT });
+        }
+    };
 
     const value = {
-        user,
-        outlet,
-        permissions,
-        isAuthenticated,
-        loading,
-        error,
-        login,
-        signup,
-        logout,
+        ...state,
+        signUp,
+        signIn,
+        signOut,
+        clearError,
         hasPermission,
-        updateProfile,
-        clearError: () => setError(null),
+        getStoredOutletDetails,
+        refreshPermissions,
     };
 
     return (
@@ -180,4 +269,16 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export default AuthContext;
+/**
+ * Custom hook to use auth context
+ * Must be used within AuthProvider
+ */
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+
+export { AuthContext };

@@ -1,27 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Plus, Minus, ShoppingCart, CreditCard, Smartphone, Banknote, X, Check } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal } from '../components/ui';
 import { formatCurrency, CATEGORIES } from '../utils/constants';
 import toast from 'react-hot-toast';
-
-// Mock menu items
-const MOCK_MENU = [
-    { id: 1, name: 'Butter Chicken', price: 250, category: 'Meals', available: true },
-    { id: 2, name: 'Chicken Biryani', price: 180, category: 'Meals', available: true },
-    { id: 3, name: 'Veg Thali', price: 120, category: 'Meals', available: true },
-    { id: 4, name: 'Paneer Tikka', price: 150, category: 'Starters', available: true },
-    { id: 5, name: 'Samosa (2 pcs)', price: 40, category: 'Starters', available: true },
-    { id: 6, name: 'Gulab Jamun', price: 60, category: 'Desserts', available: true },
-    { id: 7, name: 'Ice Cream', price: 80, category: 'Desserts', available: false },
-    { id: 8, name: 'Mango Lassi', price: 70, category: 'Beverages', available: true },
-    { id: 9, name: 'Cold Coffee', price: 90, category: 'Beverages', available: true },
-    { id: 10, name: 'Fresh Lime', price: 50, category: 'Beverages', available: true },
-];
+import { inventoryService, orderService } from '../services';
+import { useAuth } from '../context/AuthContext';
 
 export const ManualOrder = () => {
+    const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [cart, setCart] = useState([]);
+    const [menuItems, setMenuItems] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     // Payment modal
     const [paymentModal, setPaymentModal] = useState(false);
@@ -30,8 +21,43 @@ export const ManualOrder = () => {
     const [orderComplete, setOrderComplete] = useState(false);
     const [orderId, setOrderId] = useState(null);
 
+    useEffect(() => {
+        fetchMenuItems();
+    }, []);
+
+    const fetchMenuItems = async () => {
+        try {
+            setLoading(true);
+            const outletId = user?.outletId || user?.staffDetails?.outletId;
+
+            if (!outletId) {
+                toast.error('No outlet ID found');
+                return;
+            }
+
+            const response = await inventoryService.getProductsInStock(outletId);
+            if (response.success && response.data) {
+                // Transform backend data to match UI format
+                const formattedMenu = (Array.isarray(response.data) ? response.data : []).map(item => ({
+                    id: item.id || item.productId,
+                    name: item.name || item.productName,
+                    price: item.price || item.sellingPrice || 0,
+                    category: item.category || 'Other',
+                    available: item.inStock !== false && (item.quantity || item.stock || 0) > 0
+                }));
+                setMenuItems(formattedMenu);
+            }
+        } catch (error) {
+            console.error('Error fetching menu items:', error);
+            toast.error('Failed to load menu items');
+            setMenuItems([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Filter menu
-    const filteredMenu = MOCK_MENU.filter(item => {
+    const filteredMenu = menuItems.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
         return matchesSearch && matchesCategory;
@@ -79,13 +105,40 @@ export const ManualOrder = () => {
 
         setProcessing(true);
 
-        // Simulate processing
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            const outletId = user?.outletId || user?.staffDetails?.outletId;
 
-        const newOrderId = `ORD${Date.now().toString().slice(-6)}`;
-        setOrderId(newOrderId);
-        setOrderComplete(true);
-        setProcessing(false);
+            // Prepare order data
+            const orderData = {
+                outletId,
+                items: cart.map(item => ({
+                    productId: item.id,
+                    name: item.name,
+                    quantity: item.qty,
+                    price: item.price
+                })),
+                totalAmount: cartTotal,
+                paymentMethod,
+                orderType: 'MANUAL',
+                status: 'COMPLETED'
+            };
+
+            const response = await orderService.addManualOrder(orderData);
+
+            if (response.success) {
+                const newOrderId = response.data?.orderId || response.data?.id || `ORD${Date.now().toString().slice(-6)}`;
+                setOrderId(newOrderId);
+                setOrderComplete(true);
+                toast.success('Order created successfully!');
+            } else {
+                throw new Error(response.message || 'Failed to create order');
+            }
+        } catch (error) {
+            console.error('Error creating order:', error);
+            toast.error(error.message || 'Failed to process payment');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     const resetOrder = () => {
@@ -95,6 +148,14 @@ export const ManualOrder = () => {
         setOrderId(null);
         clearCart();
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex gap-6">
@@ -135,29 +196,38 @@ export const ManualOrder = () => {
 
                 {/* Menu Grid */}
                 <div className="flex-1 overflow-y-auto mt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {filteredMenu.map(item => (
-                            <Card
-                                key={item.id}
-                                className={`cursor-pointer transition-all hover:scale-[1.02] ${!item.available ? 'opacity-50' : ''
-                                    }`}
-                                onClick={() => addToCart(item)}
-                            >
-                                <CardContent className="p-4">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-medium text-foreground">{item.name}</p>
-                                            <p className="text-sm text-muted-foreground">{item.category}</p>
+                    {filteredMenu.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {filteredMenu.map(item => (
+                                <Card
+                                    key={item.id}
+                                    className={`cursor-pointer transition-all hover:scale-[1.02] ${!item.available ? 'opacity-50' : ''
+                                        }`}
+                                    onClick={() => addToCart(item)}
+                                >
+                                    <CardContent className="p-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-medium text-foreground">{item.name}</p>
+                                                <p className="text-sm text-muted-foreground">{item.category}</p>
+                                            </div>
+                                            {!item.available && (
+                                                <Badge variant="destructive" size="sm">Out</Badge>
+                                            )}
                                         </div>
-                                        {!item.available && (
-                                            <Badge variant="destructive" size="sm">Out</Badge>
-                                        )}
-                                    </div>
-                                    <p className="font-bold text-primary mt-2">{formatCurrency(item.price)}</p>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                                        <p className="font-bold text-primary mt-2">{formatCurrency(item.price)}</p>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="text-center">
+                                <p className="text-lg font-medium text-foreground">No items found</p>
+                                <p className="text-muted-foreground">Try adjusting your search or filters</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -256,8 +326,8 @@ export const ManualOrder = () => {
                                     key={method.id}
                                     onClick={() => setPaymentMethod(method.id)}
                                     className={`p-4 rounded-lg border-2 transition-all ${paymentMethod === method.id
-                                            ? 'border-primary bg-primary/10 text-primary'
-                                            : 'border-input hover:border-primary/50 text-foreground'
+                                        ? 'border-primary bg-primary/10 text-primary'
+                                        : 'border-input hover:border-primary/50 text-foreground'
                                         }`}
                                 >
                                     <method.icon className="h-6 w-6 mx-auto mb-2" />
@@ -270,7 +340,7 @@ export const ManualOrder = () => {
                             onClick={handlePayment}
                             className="w-full"
                             loading={processing}
-                            disabled={!paymentMethod}
+                            disabled={!paymentMethod || processing}
                         >
                             {processing ? 'Processing...' : 'Complete Payment'}
                         </Button>

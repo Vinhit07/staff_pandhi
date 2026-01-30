@@ -1,33 +1,22 @@
-import { useState } from 'react';
-import { Search, Plus, Minus, Package, RefreshCw, History } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Minus, Package, RefreshCw, History, Loader2 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import { CATEGORIES } from '../utils/constants';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-
-// Mock inventory
-const MOCK_INVENTORY = [
-    { id: 1, name: 'Chicken Breast', category: 'Meals', stock: 25, minimum: 20, unit: 'kg', status: 'good' },
-    { id: 2, name: 'Paneer', category: 'Meals', stock: 12, minimum: 15, unit: 'kg', status: 'warning' },
-    { id: 3, name: 'Rice', category: 'Meals', stock: 50, minimum: 30, unit: 'kg', status: 'good' },
-    { id: 4, name: 'Cooking Oil', category: 'Starters', stock: 8, minimum: 20, unit: 'L', status: 'low' },
-    { id: 5, name: 'Mango Pulp', category: 'Beverages', stock: 15, minimum: 10, unit: 'L', status: 'good' },
-    { id: 6, name: 'Sugar', category: 'Desserts', stock: 5, minimum: 10, unit: 'kg', status: 'low' },
-];
-
-const MOCK_HISTORY = [
-    { id: 1, item: 'Chicken Breast', type: 'add', qty: 10, unit: 'kg', date: '2026-01-28T10:30:00', by: 'John Staff' },
-    { id: 2, item: 'Rice', type: 'deduct', qty: 5, unit: 'kg', date: '2026-01-28T09:15:00', by: 'John Staff' },
-    { id: 3, item: 'Paneer', type: 'add', qty: 8, unit: 'kg', date: '2026-01-27T14:00:00', by: 'Admin' },
-    { id: 4, item: 'Cooking Oil', type: 'deduct', qty: 3, unit: 'L', date: '2026-01-27T11:30:00', by: 'John Staff' },
-];
+import { useAuth } from '../hooks/useAuth';
+import { inventoryService } from '../services';
 
 export const Inventory = () => {
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
+
     const [activeTab, setActiveTab] = useState('stock');
-    const [inventory, setInventory] = useState(MOCK_INVENTORY);
-    const [history] = useState(MOCK_HISTORY);
+    const [inventory, setInventory] = useState([]);
+    const [history, setHistory] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
+    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     // Stock modal
@@ -35,10 +24,53 @@ export const Inventory = () => {
     const [modalType, setModalType] = useState('add');
     const [selectedItem, setSelectedItem] = useState(null);
     const [quantity, setQuantity] = useState('');
+    const [processing, setProcessing] = useState(false);
+
+    // Fetch stocks on mount
+    useEffect(() => {
+        fetchStocks();
+    }, [outletId]);
+
+    // Fetch stock history when switching to history tab
+    useEffect(() => {
+        if (activeTab === 'history' && outletId) {
+            fetchHistory();
+        }
+    }, [activeTab, outletId]);
+
+    const fetchStocks = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const data = await inventoryService.getStocks(outletId);
+            setInventory(data.stocks || []);
+        } catch (error) {
+            console.error('Error fetching stocks:', error);
+            toast.error('Failed to load inventory');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchHistory = async () => {
+        if (!outletId) return;
+
+        try {
+            const data = await inventoryService.getStockHistory({ outletId });
+            setHistory(data.history || []);
+        } catch (error) {
+            console.error('Error fetching stock history:', error);
+            toast.error('Failed to load history');
+        }
+    };
 
     // Filter inventory
     const filteredInventory = inventory.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = item.productName?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
@@ -46,10 +78,7 @@ export const Inventory = () => {
     // Refresh
     const handleRefresh = () => {
         setRefreshing(true);
-        setTimeout(() => {
-            setRefreshing(false);
-            toast.success('Data refreshed');
-        }, 500);
+        fetchStocks().finally(() => setRefreshing(false));
     };
 
     // Open stock modal
@@ -61,36 +90,44 @@ export const Inventory = () => {
     };
 
     // Update stock
-    const handleUpdateStock = () => {
+    const handleUpdateStock = async () => {
         const qty = parseInt(quantity);
         if (!qty || qty <= 0) {
             toast.error('Please enter a valid quantity');
             return;
         }
 
-        setInventory(prev => prev.map(item => {
-            if (item.id === selectedItem.id) {
-                const newStock = modalType === 'add' ? item.stock + qty : Math.max(0, item.stock - qty);
-                let status = 'good';
-                if (newStock < item.minimum * 0.5) status = 'low';
-                else if (newStock < item.minimum) status = 'warning';
-                return { ...item, stock: newStock, status };
-            }
-            return item;
-        }));
+        try {
+            setProcessing(true);
+            const stockData = {
+                outletId: parseInt(outletId),
+                productId: selectedItem.productId,
+                quantity: qty,
+            };
 
-        toast.success(`${modalType === 'add' ? 'Added' : 'Deducted'} ${qty} ${selectedItem.unit} of ${selectedItem.name}`);
-        setStockModal(false);
+            if (modalType === 'add') {
+                await inventoryService.addStock(stockData);
+                toast.success(`Added ${qty} ${selectedItem.unit} of ${selectedItem.productName}`);
+            } else {
+                await inventoryService.deductStock(stockData);
+                toast.success(`Deducted ${qty} ${selectedItem.unit} of ${selectedItem.productName}`);
+            }
+
+            setStockModal(false);
+            fetchStocks(); // Refresh stocks
+        } catch (error) {
+            console.error('Error updating stock:', error);
+            toast.error('Failed to update stock');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     // Status badge variant
-    const getStatusVariant = (status) => {
-        switch (status) {
-            case 'good': return 'success';
-            case 'warning': return 'warning';
-            case 'low': return 'destructive';
-            default: return 'default';
-        }
+    const getStatusVariant = (currentStock, minimumStock) => {
+        if (currentStock < minimumStock * 0.5) return 'destructive';
+        if (currentStock < minimumStock) return 'warning';
+        return 'success';
     };
 
     return (
@@ -157,40 +194,51 @@ export const Inventory = () => {
                     </div>
 
                     {/* Inventory Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredInventory.map(item => (
-                            <Card key={item.id}>
-                                <CardContent className="p-4">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <p className="font-semibold text-foreground">{item.name}</p>
-                                            <p className="text-xs text-muted-foreground">{item.category}</p>
+                    {loading ? (
+                        <div className="flex justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : filteredInventory.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                            No inventory items found
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredInventory.map(item => (
+                                <Card key={item.productId}>
+                                    <CardContent className="p-4">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <p className="font-semibold text-foreground">{item.productName}</p>
+                                                <p className="text-xs text-muted-foreground">{item.category || 'N/A'}</p>
+                                            </div>
+                                            <Badge variant={getStatusVariant(item.currentStock, item.minimumStock)}>
+                                                {item.currentStock < item.minimumStock * 0.5 ? 'LOW' :
+                                                    item.currentStock < item.minimumStock ? 'WARNING' : 'GOOD'}
+                                            </Badge>
                                         </div>
-                                        <Badge variant={getStatusVariant(item.status)}>
-                                            {item.status.toUpperCase()}
-                                        </Badge>
-                                    </div>
-                                    <div className="bg-muted/30 rounded-lg p-3 mb-3">
-                                        <p className="text-xs text-muted-foreground">Current Stock</p>
-                                        <p className="text-xl font-bold text-foreground">
-                                            {item.stock} <span className="text-sm font-normal text-muted-foreground">{item.unit}</span>
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">Min: {item.minimum} {item.unit}</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button size="sm" className="flex-1" onClick={() => openStockModal(item, 'add')}>
-                                            <Plus className="h-3 w-3" />
-                                            Add
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="flex-1" onClick={() => openStockModal(item, 'deduct')}>
-                                            <Minus className="h-3 w-3" />
-                                            Deduct
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                                        <div className="bg-muted/30 rounded-lg p-3 mb-3">
+                                            <p className="text-xs text-muted-foreground">Current Stock</p>
+                                            <p className="text-xl font-bold text-foreground">
+                                                {item.currentStock} <span className="text-sm font-normal text-muted-foreground">{item.unit}</span>
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">Min: {item.minimumStock} {item.unit}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" className="flex-1" onClick={() => openStockModal(item, 'add')}>
+                                                <Plus className="h-3 w-3" />
+                                                Add
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="flex-1" onClick={() => openStockModal(item, 'deduct')}>
+                                                <Minus className="h-3 w-3" />
+                                                Deduct
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </div>
             ) : (
                 <Card>
@@ -207,23 +255,29 @@ export const Inventory = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/30">
-                                    {history.map(entry => (
+                                    {history.length > 0 ? history.map(entry => (
                                         <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">{entry.item}</td>
+                                            <td className="px-4 py-3 font-medium text-foreground">{entry.productName}</td>
                                             <td className="px-4 py-3">
-                                                <Badge variant={entry.type === 'add' ? 'success' : 'warning'}>
-                                                    {entry.type === 'add' ? '+' : '-'} {entry.type.toUpperCase()}
+                                                <Badge variant={entry.transactionType === 'ADD' ? 'success' : 'warning'}>
+                                                    {entry.transactionType === 'ADD' ? '+' : '-'} {entry.transactionType}
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-3 text-foreground">
-                                                {entry.qty} {entry.unit}
+                                                {entry.quantity} {entry.unit}
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground text-sm">
-                                                {dayjs(entry.date).format('DD/MM/YYYY HH:mm')}
+                                                {dayjs(entry.createdAt).format('DD/MM/YYYY HH:mm')}
                                             </td>
-                                            <td className="px-4 py-3 text-muted-foreground text-sm">{entry.by}</td>
+                                            <td className="px-4 py-3 text-muted-foreground text-sm">{entry.staffName || 'System'}</td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
+                                                No history available
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -238,8 +292,8 @@ export const Inventory = () => {
                 title={`${modalType === 'add' ? 'Add to' : 'Deduct from'} ${selectedItem?.name}`}
                 footer={
                     <>
-                        <Button variant="ghost" onClick={() => setStockModal(false)}>Cancel</Button>
-                        <Button onClick={handleUpdateStock}>
+                        <Button variant="ghost" onClick={() => setStockModal(false)} disabled={processing}>Cancel</Button>
+                        <Button onClick={handleUpdateStock} loading={processing}>
                             {modalType === 'add' ? 'Add Stock' : 'Deduct Stock'}
                         </Button>
                     </>
@@ -249,7 +303,7 @@ export const Inventory = () => {
                     <div className="bg-muted/30 rounded-lg p-4">
                         <p className="text-sm text-muted-foreground">Current Stock</p>
                         <p className="text-2xl font-bold text-foreground">
-                            {selectedItem?.stock} {selectedItem?.unit}
+                            {selectedItem?.currentStock} {selectedItem?.unit}
                         </p>
                     </div>
                     <Input

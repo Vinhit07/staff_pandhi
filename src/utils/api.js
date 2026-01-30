@@ -1,6 +1,10 @@
 // API utility for making HTTP requests with authorization
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5500/api';
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+    throw new Error('VITE_API_URL environment variable is not set. Please create a .env file from .env.example');
+}
 
 /**
  * Make an authorized API request

@@ -1,24 +1,21 @@
-import { useState } from 'react';
-import { RefreshCw, Search, Plus, Wallet as WalletIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, Search, Plus, Wallet as WalletIcon, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import { formatCurrency, formatDate } from '../utils/constants';
 import toast from 'react-hot-toast';
+import { useAuth } from '../hooks/useAuth';
+import { walletService } from '../services';
 
-// Mock recharge history
-const MOCK_RECHARGES = [
-    { id: 'TXN001', customerId: 1, customerName: 'Rahul Sharma', date: '2026-01-28', amount: 500, method: 'CASH' },
-    { id: 'TXN002', customerId: 2, customerName: 'Priya Patel', date: '2026-01-28', amount: 1000, method: 'UPI' },
-    { id: 'TXN003', customerId: 3, customerName: 'Amit Kumar', date: '2026-01-27', amount: 750, method: 'CARD' },
-    { id: 'TXN004', customerId: 4, customerName: 'Sneha Reddy', date: '2026-01-27', amount: 300, method: 'CASH' },
-    { id: 'TXN005', customerId: 5, customerName: 'Vikram Singh', date: '2026-01-26', amount: 2000, method: 'UPI' },
-];
 
 export const Wallet = () => {
-    const [recharges, setRecharges] = useState(MOCK_RECHARGES);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(false);
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
 
-    // Recharge modal
+    const [recharges, setRecharges] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
     const [rechargeModal, setRechargeModal] = useState(false);
     const [formData, setFormData] = useState({
         customerId: '',
@@ -28,19 +25,39 @@ export const Wallet = () => {
     });
     const [processing, setProcessing] = useState(false);
 
+    // Fetch recharge history on mount
+    useEffect(() => {
+        fetchRecharges();
+    }, [outletId]);
+
+    const fetchRecharges = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const data = await walletService.getRechargeHistory(outletId);
+            setRecharges(data.recharges || []);
+        } catch (error) {
+            console.error('Error fetching recharges:', error);
+            toast.error('Failed to load recharge history');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Filter recharges
     const filteredRecharges = recharges.filter(r =>
-        r.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+        r.transactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Handle refresh
     const handleRefresh = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            toast.success('Data refreshed');
-        }, 500);
+        setRefreshing(true);
+        fetchRecharges().finally(() => setRefreshing(false));
     };
 
     // Handle form change
@@ -62,24 +79,26 @@ export const Wallet = () => {
             return;
         }
 
-        setProcessing(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            setProcessing(true);
+            await walletService.addRecharge({
+                outletId: parseInt(outletId),
+                customerId: parseInt(formData.customerId),
+                amount: amount,
+                paymentMethod: formData.method,
+                notes: formData.notes,
+            });
 
-        const newRecharge = {
-            id: `TXN${String(recharges.length + 1).padStart(3, '0')}`,
-            customerId: parseInt(formData.customerId),
-            customerName: `Customer ${formData.customerId}`,
-            date: new Date().toISOString().split('T')[0],
-            amount: amount,
-            method: formData.method,
-        };
-
-        setRecharges(prev => [newRecharge, ...prev]);
-
-        toast.success(`Wallet recharged with ${formatCurrency(amount)}`);
-        setRechargeModal(false);
-        setFormData({ customerId: '', amount: '', method: 'CASH', notes: '' });
-        setProcessing(false);
+            toast.success(`Wallet recharged with ${formatCurrency(amount)}`);
+            setRechargeModal(false);
+            setFormData({ customerId: '', amount: '', method: 'CASH', notes: '' });
+            fetchRecharges(); // Refresh list
+        } catch (error) {
+            console.error('Error recharging wallet:', error);
+            toast.error('Failed to recharge wallet');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     // Get method badge variant
