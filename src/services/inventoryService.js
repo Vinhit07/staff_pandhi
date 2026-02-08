@@ -33,9 +33,15 @@ export const inventoryService = {
      * @returns {Promise<Object>} - Updated stock record
      */
     addStock: async (stockData) => {
+        // Backend expects 'addedQuantity' not 'quantity' for add stock
+        const requestBody = {
+            productId: stockData.productId,
+            outletId: stockData.outletId,
+            addedQuantity: stockData.quantity || stockData.addedQuantity,
+        };
         return await apiRequest(API_ENDPOINTS.ADD_STOCK, {
             method: 'POST',
-            body: stockData,
+            body: requestBody,
         });
     },
 

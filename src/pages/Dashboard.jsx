@@ -57,7 +57,7 @@ export const Dashboard = () => {
 
             try {
                 setOrdersLoading(true);
-                const data = await orderService.getRecentOrders(outletId, 1, 5);
+                const data = await orderService.getRecentOrders(outletId, { page: 1, limit: 5 });
                 setOrders(data.orders || []);
             } catch (error) {
                 console.error('Error fetching recent orders:', error);

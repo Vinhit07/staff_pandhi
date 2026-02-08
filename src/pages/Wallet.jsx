@@ -39,7 +39,7 @@ export const Wallet = () => {
         try {
             setLoading(true);
             const data = await walletService.getRechargeHistory(outletId);
-            setRecharges(data.recharges || []);
+            setRecharges(data.transactions || []);
         } catch (error) {
             console.error('Error fetching recharges:', error);
             toast.error('Failed to load recharge history');
@@ -50,7 +50,7 @@ export const Wallet = () => {
 
     // Filter recharges
     const filteredRecharges = recharges.filter(r =>
-        r.transactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.id?.toString().includes(searchTerm.toLowerCase()) ||
         r.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -131,12 +131,18 @@ export const Wallet = () => {
                     <CardHeader className="pb-3">
                         <CardDescription>Today's Recharges</CardDescription>
                         <CardTitle className="text-3xl text-primary">
-                            {formatCurrency(recharges.filter(r => r.date === '2026-01-28').reduce((sum, r) => sum + r.amount, 0))}
+                            {formatCurrency(recharges.filter(r => {
+                                const today = new Date().toISOString().split('T')[0];
+                                return r.createdAt?.startsWith(today);
+                            }).reduce((sum, r) => sum + r.amount, 0))}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-xs text-muted-foreground">
-                            {recharges.filter(r => r.date === '2026-01-28').length} transactions
+                            {recharges.filter(r => {
+                                const today = new Date().toISOString().split('T')[0];
+                                return r.createdAt?.startsWith(today);
+                            }).length} transactions
                         </p>
                     </CardContent>
                 </Card>
@@ -210,7 +216,7 @@ export const Wallet = () => {
                                         <tr key={recharge.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3 font-mono font-medium text-foreground">#{recharge.id}</td>
                                             <td className="px-4 py-3 text-foreground">{recharge.customerName}</td>
-                                            <td className="px-4 py-3 text-muted-foreground">{formatDate(recharge.date)}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">{formatDate(recharge.createdAt)}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={getMethodVariant(recharge.method)}>{recharge.method}</Badge>
                                             </td>

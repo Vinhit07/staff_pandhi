@@ -70,7 +70,7 @@ export const Inventory = () => {
 
     // Filter inventory
     const filteredInventory = inventory.filter(item => {
-        const matchesSearch = item.productName?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
@@ -101,16 +101,16 @@ export const Inventory = () => {
             setProcessing(true);
             const stockData = {
                 outletId: parseInt(outletId),
-                productId: selectedItem.productId,
+                productId: selectedItem.id,
                 quantity: qty,
             };
 
             if (modalType === 'add') {
                 await inventoryService.addStock(stockData);
-                toast.success(`Added ${qty} ${selectedItem.unit} of ${selectedItem.productName}`);
+                toast.success(`Added ${qty} units of ${selectedItem.name}`);
             } else {
                 await inventoryService.deductStock(stockData);
-                toast.success(`Deducted ${qty} ${selectedItem.unit} of ${selectedItem.productName}`);
+                toast.success(`Deducted ${qty} units of ${selectedItem.name}`);
             }
 
             setStockModal(false);
@@ -124,9 +124,9 @@ export const Inventory = () => {
     };
 
     // Status badge variant
-    const getStatusVariant = (currentStock, minimumStock) => {
-        if (currentStock < minimumStock * 0.5) return 'destructive';
-        if (currentStock < minimumStock) return 'warning';
+    const getStatusVariant = (quantity, threshold) => {
+        if (quantity < threshold * 0.5) return 'destructive';
+        if (quantity < threshold) return 'warning';
         return 'success';
     };
 
@@ -205,24 +205,24 @@ export const Inventory = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredInventory.map(item => (
-                                <Card key={item.productId}>
+                                <Card key={item.id}>
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <p className="font-semibold text-foreground">{item.productName}</p>
+                                                <p className="font-semibold text-foreground">{item.name}</p>
                                                 <p className="text-xs text-muted-foreground">{item.category || 'N/A'}</p>
                                             </div>
-                                            <Badge variant={getStatusVariant(item.currentStock, item.minimumStock)}>
-                                                {item.currentStock < item.minimumStock * 0.5 ? 'LOW' :
-                                                    item.currentStock < item.minimumStock ? 'WARNING' : 'GOOD'}
+                                            <Badge variant={getStatusVariant(item.quantity, item.threshold)}>
+                                                {item.quantity < item.threshold * 0.5 ? 'LOW' :
+                                                    item.quantity < item.threshold ? 'WARNING' : 'GOOD'}
                                             </Badge>
                                         </div>
                                         <div className="bg-muted/30 rounded-lg p-3 mb-3">
                                             <p className="text-xs text-muted-foreground">Current Stock</p>
                                             <p className="text-xl font-bold text-foreground">
-                                                {item.currentStock} <span className="text-sm font-normal text-muted-foreground">{item.unit}</span>
+                                                {item.quantity} <span className="text-sm font-normal text-muted-foreground">units</span>
                                             </p>
-                                            <p className="text-xs text-muted-foreground">Min: {item.minimumStock} {item.unit}</p>
+                                            <p className="text-xs text-muted-foreground">Min: {item.threshold} units</p>
                                         </div>
                                         <div className="flex gap-2">
                                             <Button size="sm" className="flex-1" onClick={() => openStockModal(item, 'add')}>
@@ -257,19 +257,19 @@ export const Inventory = () => {
                                 <tbody className="divide-y divide-border/30">
                                     {history.length > 0 ? history.map(entry => (
                                         <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">{entry.productName}</td>
+                                            <td className="px-4 py-3 font-medium text-foreground">{entry.product?.name || 'Unknown'}</td>
                                             <td className="px-4 py-3">
-                                                <Badge variant={entry.transactionType === 'ADD' ? 'success' : 'warning'}>
-                                                    {entry.transactionType === 'ADD' ? '+' : '-'} {entry.transactionType}
+                                                <Badge variant={entry.action === 'ADD' ? 'success' : 'warning'}>
+                                                    {entry.action === 'ADD' ? '+' : '-'} {entry.action}
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-3 text-foreground">
-                                                {entry.quantity} {entry.unit}
+                                                {entry.quantity} units
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground text-sm">
-                                                {dayjs(entry.createdAt).format('DD/MM/YYYY HH:mm')}
+                                                {dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm')}
                                             </td>
-                                            <td className="px-4 py-3 text-muted-foreground text-sm">{entry.staffName || 'System'}</td>
+                                            <td className="px-4 py-3 text-muted-foreground text-sm">{'System'}</td>
                                         </tr>
                                     )) : (
                                         <tr>
@@ -303,11 +303,11 @@ export const Inventory = () => {
                     <div className="bg-muted/30 rounded-lg p-4">
                         <p className="text-sm text-muted-foreground">Current Stock</p>
                         <p className="text-2xl font-bold text-foreground">
-                            {selectedItem?.currentStock} {selectedItem?.unit}
+                            {selectedItem?.quantity} units
                         </p>
                     </div>
                     <Input
-                        label={`Quantity to ${modalType} (${selectedItem?.unit})`}
+                        label={`Quantity to ${modalType} (units)`}
                         type="number"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
