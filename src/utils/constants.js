@@ -43,7 +43,7 @@ export const PAYMENT_METHODS = {
 };
 
 // Product categories
-export const CATEGORIES = ['All', 'Meals', 'Starters', 'Desserts', 'Beverages'];
+export const CATEGORIES = ['All', 'Meals', 'Starters', 'Desserts', 'Beverages', 'SpecialFoods'];
 
 // Delivery slot formatting
 export const formatDeliverySlot = (slot) => {

@@ -8,8 +8,10 @@ import { useAuth } from '../hooks/useAuth';
 import { inventoryService } from '../services';
 
 export const Inventory = () => {
-    const { user } = useAuth();
-    const outletId = user?.outlet?.id;
+    const { user, outlet } = useAuth();
+    const outletId = outlet?.id;
+
+    console.log('Inventory: outletId:', outletId);
 
     const [activeTab, setActiveTab] = useState('stock');
     const [inventory, setInventory] = useState([]);
@@ -47,6 +49,7 @@ export const Inventory = () => {
         try {
             setLoading(true);
             const data = await inventoryService.getStocks(outletId);
+            console.log('Inventory: fetchStocks response:', data);
             setInventory(data.stocks || []);
         } catch (error) {
             console.error('Error fetching stocks:', error);
@@ -72,8 +75,14 @@ export const Inventory = () => {
     const filteredInventory = inventory.filter(item => {
         const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+
+        // Debug filtering
+        // console.log(`Item: ${item.name}, Category: ${item.category}, Selected: ${selectedCategory}, Match: ${matchesCategory}`);
+
         return matchesSearch && matchesCategory;
     });
+
+    console.log('Inventory: Filtered items count:', filteredInventory.length, 'Total items:', inventory.length);
 
     // Refresh
     const handleRefresh = () => {

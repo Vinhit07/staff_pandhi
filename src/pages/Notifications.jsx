@@ -43,10 +43,11 @@ export const Notifications = () => {
         if (!outletId) return;
         try {
             const response = await orderService.getOrders(outletId, { status: 'pending' });
-            if (response.success && response.data) {
+            // apiRequest returns data directly: {orders: [...], total, totalPages, currentPage}
+            if (response && response.orders) {
                 // Transform backend data to match UI format
-                const formattedOrders = (Array.isArray(response.data) ? response.data : []).map(order => ({
-                    id: order.orderId || order.id,
+                const formattedOrders = (Array.isArray(response.orders) ? response.orders : []).map(order => ({
+                    id: order.billNumber || order.orderId || order.id,
                     customer: order.customerName || order.customer || 'Unknown',
                     items: order.items?.map(item => `${item.name || item.product} x${item.quantity}`) || [],
                     total: order.totalAmount || order.total || 0,
@@ -64,16 +65,25 @@ export const Notifications = () => {
         if (!outletId) return;
         try {
             const response = await inventoryService.getLowStock(outletId);
-            if (response.success && response.data) {
-                // Transform backend data to match UI format
-                const formattedStock = (Array.isArray(response.data) ? response.data : []).map(item => ({
+            // API returns { stocks: [...] }
+            if (response && response.stocks) {
+                // Filter for items where quantity is below threshold
+                const lowStockItems = Array.isArray(response.stocks)
+                    ? response.stocks.filter(item => item.quantity < item.threshold)
+                    : [];
+
+                console.log('Notifications: Low stock items:', lowStockItems);
+
+                const formattedStock = lowStockItems.map(item => ({
                     id: item.id,
-                    name: item.name || item.itemName,
-                    current: item.currentStock || item.current || 0,
-                    minimum: item.minimumStock || item.minimum || 0,
-                    unit: item.unit || 'units'
+                    name: item.name,
+                    current: item.quantity,
+                    minimum: item.threshold,
+                    unit: 'units'
                 }));
                 setLowStock(formattedStock);
+            } else {
+                console.warn('Notifications: Invalid stock response:', response);
             }
         } catch (error) {
             console.error('Error fetching low stock:', error);
@@ -90,27 +100,37 @@ export const Notifications = () => {
 
     const handleDeliver = async (orderId) => {
         try {
-            const response = await orderService.updateOrderStatus(orderId, 'delivered');
-            if (response.success) {
+            // Backend expects {orderId, status, outletId} with UPPERCASE status
+            const response = await orderService.updateOrderStatus({
+                orderId,
+                status: 'DELIVERED',
+                outletId
+            });
+            if (response && response.message) {
                 setOrders(prev => prev.filter(o => o.id !== orderId));
-                toast.success(`Order #${orderId} marked as delivered`);
+                toast.success(response.message || `Order #${orderId} marked as delivered`);
             }
         } catch (error) {
             console.error('Error delivering order:', error);
-            toast.error('Failed to update order status');
+            toast.error(error.message || 'Failed to update order status');
         }
     };
 
     const handleCancel = async (orderId) => {
         try {
-            const response = await orderService.updateOrderStatus(orderId, 'cancelled');
-            if (response.success) {
+            // Backend expects {orderId, status, outletId} with UPPERCASE status
+            const response = await orderService.updateOrderStatus({
+                orderId,
+                status: 'CANCELLED',
+                outletId
+            });
+            if (response && response.message) {
                 setOrders(prev => prev.filter(o => o.id !== orderId));
-                toast.success(`Order #${orderId} cancelled`);
+                toast.success(response.message || `Order #${orderId} cancelled`);
             }
         } catch (error) {
             console.error('Error cancelling order:', error);
-            toast.error('Failed to cancel order');
+            toast.error(error.message || 'Failed to cancel order');
         }
     };
 
