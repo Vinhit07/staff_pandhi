@@ -131,18 +131,12 @@ export const Wallet = () => {
                     <CardHeader className="pb-3">
                         <CardDescription>Today's Recharges</CardDescription>
                         <CardTitle className="text-3xl text-primary">
-                            {formatCurrency(recharges.filter(r => {
-                                const today = new Date().toISOString().split('T')[0];
-                                return r.createdAt?.startsWith(today);
-                            }).reduce((sum, r) => sum + r.amount, 0))}
+                            {formatCurrency(recharges.reduce((sum, r) => sum + (r.amount || 0), 0))}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-xs text-muted-foreground">
-                            {recharges.filter(r => {
-                                const today = new Date().toISOString().split('T')[0];
-                                return r.createdAt?.startsWith(today);
-                            }).length} transactions
+                            {recharges.length} transactions
                         </p>
                     </CardContent>
                 </Card>
@@ -150,9 +144,23 @@ export const Wallet = () => {
                 <Card>
                     <CardHeader className="pb-3">
                         <CardDescription>This Week</CardDescription>
-                        <CardTitle className="text-3xl text-secondary">
-                            {formatCurrency(recharges.reduce((sum, r) => sum + r.amount, 0))}
-                        </CardTitle>
+                        <CardTitle className="text-3xl text-foreground">
+                            {formatCurrency(
+                                recharges
+                                    .filter(r => {
+                                        const date = new Date(r.createdAt);
+                                        const now = new Date();
+
+                                        const startOfWeek = new Date(now);
+                                        const day = now.getDay();
+                                        const diff = day === 0 ? 6 : day - 1;
+                                        startOfWeek.setDate(now.getDate() - diff);
+                                        startOfWeek.setHours(0, 0, 0, 0);
+
+                                        return date >= startOfWeek && date <= now;
+                                    })
+                                    .reduce((sum, r) => sum + (r.amount || 0), 0)
+                            )}                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-xs text-muted-foreground">

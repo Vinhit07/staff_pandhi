@@ -149,10 +149,11 @@ export const Notifications = () => {
         try {
             const response = await inventoryService.updateStock(selectedItem.id, {
                 quantity: parseInt(restockQty),
-                action: 'add'
+                action: 'add',
+                outletId: outletId
             });
 
-            if (response.success) {
+            if (response && response.message) {
                 // Update local state
                 setLowStock(prev => prev.map(item =>
                     item.id === selectedItem.id

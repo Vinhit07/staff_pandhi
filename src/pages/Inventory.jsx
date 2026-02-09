@@ -63,7 +63,15 @@ export const Inventory = () => {
         if (!outletId) return;
 
         try {
-            const data = await inventoryService.getStockHistory({ outletId });
+            // Get date range for last 30 days
+            const endDate = dayjs().format('YYYY-MM-DD');
+            const startDate = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
+
+            const data = await inventoryService.getStockHistory({
+                outletId,
+                startDate,
+                endDate
+            });
             setHistory(data.history || []);
         } catch (error) {
             console.error('Error fetching stock history:', error);
