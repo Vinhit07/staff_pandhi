@@ -67,12 +67,16 @@ const menuItems = [
 ];
 
 export const Sidebar = () => {
-    const { hasPermission, logout, user } = useAuth();
+    const { hasPermission, signOut, user } = useAuth();
     const navigate = useNavigate();
 
-    const handleLogout = () => {
-        logout();
-        navigate(ROUTES.SIGNIN);
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            navigate(ROUTES.SIGNIN);
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
     };
 
     return (

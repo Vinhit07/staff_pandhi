@@ -15,19 +15,18 @@ export const OrderHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [fromDate, setFromDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
-    const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
+    const [selectedFilter, setSelectedFilter] = useState('7'); // '0' = Today, '7' = 7 Days, '30' = 30 Days
 
     // Details modal
     const [detailsModal, setDetailsModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    // Fetch order history on mount or when filters change
+    // Fetch ALL order history once on mount
     useEffect(() => {
-        fetchOrderHistory();
-    }, [outletId, fromDate, toDate]);
+        fetchAllOrders();
+    }, [outletId]);
 
-    const fetchOrderHistory = async () => {
+    const fetchAllOrders = async () => {
         if (!outletId) {
             setLoading(false);
             return;
@@ -35,10 +34,14 @@ export const OrderHistory = () => {
 
         try {
             setLoading(true);
+            // Fetch last 90 days of orders (or adjust as needed for your use case)
+            const ninetyDaysAgo = dayjs().subtract(90, 'day').format('YYYY-MM-DD');
+            const today = dayjs().format('YYYY-MM-DD');
+
             const data = await orderService.getOrderHistory({
                 outletId,
-                from: fromDate,
-                to: toDate,
+                from: ninetyDaysAgo,
+                to: today,
             });
             setOrders(data.orders || []);
         } catch (error) {
@@ -49,12 +52,31 @@ export const OrderHistory = () => {
         }
     };
 
-    // Filter orders
+    // Filter orders based on search term AND date filter (frontend only)
     const filteredOrders = orders.filter(order => {
+        // Apply search filter
         const matchesSearch =
+            order.id?.toString().includes(searchTerm) ||
             order.billNumber?.toString().includes(searchTerm) ||
             order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesSearch;
+
+        // Apply date filter
+        const orderDate = dayjs(order.createdAt);
+        const today = dayjs();
+        let matchesDate = true;
+
+        if (selectedFilter === '0') {
+            // Today only
+            matchesDate = orderDate.isSame(today, 'day');
+        } else if (selectedFilter === '7') {
+            // Last 7 days
+            matchesDate = orderDate.isAfter(today.subtract(7, 'day'));
+        } else if (selectedFilter === '30') {
+            // Last 30 days
+            matchesDate = orderDate.isAfter(today.subtract(30, 'day'));
+        }
+
+        return matchesSearch && matchesDate;
     });
 
     // Export to Excel
@@ -71,7 +93,9 @@ export const OrderHistory = () => {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-        XLSX.writeFile(wb, `Orders_${fromDate}_to_${toDate}.xlsx`);
+
+        const filterLabel = selectedFilter === '0' ? 'Today' : selectedFilter === '7' ? '7Days' : '30Days';
+        XLSX.writeFile(wb, `Orders_${filterLabel}_${dayjs().format('YYYY-MM-DD')}.xlsx`);
         toast.success('Excel file downloaded');
     };
 
@@ -91,10 +115,9 @@ export const OrderHistory = () => {
         }
     };
 
-    // Quick date selections
+    // Quick date selections (now just updates the filter state)
     const setQuickDate = (days) => {
-        setToDate(dayjs().format('YYYY-MM-DD'));
-        setFromDate(dayjs().subtract(days, 'day').format('YYYY-MM-DD'));
+        setSelectedFilter(days.toString());
     };
 
     return (
@@ -130,29 +153,27 @@ export const OrderHistory = () => {
 
                         {/* Quick Date Buttons */}
                         <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(1)}>Today</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
-                        </div>
-
-                        {/* Date Range */}
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground 
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground 
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
+                            <Button
+                                size="sm"
+                                variant={selectedFilter === '0' ? 'default' : 'outline'}
+                                onClick={() => setQuickDate(0)}
+                            >
+                                Today
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={selectedFilter === '7' ? 'default' : 'outline'}
+                                onClick={() => setQuickDate(7)}
+                            >
+                                7 Days
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={selectedFilter === '30' ? 'default' : 'outline'}
+                                onClick={() => setQuickDate(30)}
+                            >
+                                30 Days
+                            </Button>
                         </div>
                     </div>
                 </CardContent>
@@ -183,7 +204,7 @@ export const OrderHistory = () => {
                                 ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
                                         <tr key={order.billNumber} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">#{order.orderNumber}</td>
+                                            <td className="px-4 py-3 font-medium text-foreground">{order.id}</td>
                                             <td className="px-4 py-3 text-foreground">{order.customerName}</td>
                                             <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
                                             <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
