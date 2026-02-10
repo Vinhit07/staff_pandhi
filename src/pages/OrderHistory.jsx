@@ -15,7 +15,7 @@ export const OrderHistory = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [fromDate, setFromDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+    const [fromDate, setFromDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
     const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
 
     // Details modal
@@ -52,7 +52,7 @@ export const OrderHistory = () => {
     // Filter orders
     const filteredOrders = orders.filter(order => {
         const matchesSearch =
-            order.billNumber?.toString().includes(searchTerm) ||
+            order.orderNumber?.toString().includes(searchTerm) ||
             order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesSearch;
     });
@@ -60,7 +60,7 @@ export const OrderHistory = () => {
     // Export to Excel
     const handleExport = () => {
         const data = filteredOrders.map(order => ({
-            'Order ID': order.billNumber,
+            'Order ID': order.orderNumber,
             'Customer': order.customerName,
             'Date': formatDateTime(order.createdAt),
             'Total': order.totalAmount,
@@ -182,8 +182,8 @@ export const OrderHistory = () => {
                                     </tr>
                                 ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
-                                        <tr key={order.billNumber} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">#{order.orderNumber}</td>
+                                        <tr key={order.id} className="hover:bg-muted/30 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-foreground">{order.orderNumber}</td>
                                             <td className="px-4 py-3 text-foreground">{order.customerName}</td>
                                             <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
                                             <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
@@ -214,7 +214,7 @@ export const OrderHistory = () => {
             <Modal
                 isOpen={detailsModal}
                 onClose={() => setDetailsModal(false)}
-                title={`Order #${selectedOrder?.id}`}
+                title={`Order #${selectedOrder?.billNumber}`}
             >
                 {selectedOrder && (
                     <div className="space-y-4">
@@ -240,9 +240,9 @@ export const OrderHistory = () => {
                         <div className="border-t border-border pt-4">
                             <p className="font-medium text-foreground mb-2">Items</p>
                             <div className="space-y-2">
-                                {selectedOrder.items.map((item, i) => (
-                                    <div key={i} className="flex justify-between p-2 bg-muted/50 rounded-lg">
-                                        <span className="text-foreground">{item.productName} x{item.quantity}</span>
+                                {selectedOrder.items?.map((item, i) => (
+                                    <div key={`${selectedOrder.id}-item-${i}`} className="flex justify-between p-2 bg-muted/50 rounded-lg">
+                                        <span className="text-foreground">{item.name || item.productName} x{item.quantity}</span>
                                         <span className="font-medium text-foreground">{formatCurrency(item.unitPrice)}</span>
                                     </div>
                                 ))}

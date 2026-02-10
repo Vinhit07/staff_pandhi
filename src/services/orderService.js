@@ -10,9 +10,16 @@ export const orderService = {
      * @returns {Promise<Object>} - Home data with stats and recent activity
      */
     getHomeData: async () => {
-        return await apiRequest(API_ENDPOINTS.HOME_DATA, {
+        const response = await apiRequest(API_ENDPOINTS.HOME_DATA, {
             method: 'GET',
         });
+
+        // DEBUG: Log raw API response
+        console.log('=== RAW API RESPONSE (getHomeData) ===');
+        console.log(JSON.stringify(response, null, 2));
+        console.log('======================================');
+
+        return response;
     },
 
     /**
@@ -89,7 +96,24 @@ export const orderService = {
      * @returns {Promise<Object>} - Order history
      */
     getOrderHistory: async (params = {}) => {
-        const queryParams = new URLSearchParams(params);
+        // Backend expects startDate/endDate, not from/to
+        const mappedParams = {};
+
+        if (params.from) {
+            mappedParams.startDate = params.from;
+        }
+        if (params.to) {
+            mappedParams.endDate = params.to;
+        }
+
+        // Copy other params
+        Object.keys(params).forEach(key => {
+            if (key !== 'from' && key !== 'to' && key !== 'outletId') {
+                mappedParams[key] = params[key];
+            }
+        });
+
+        const queryParams = new URLSearchParams(mappedParams);
         return await apiRequest(`${API_ENDPOINTS.ORDER_HISTORY}?${queryParams.toString()}`, {
             method: 'GET',
         });

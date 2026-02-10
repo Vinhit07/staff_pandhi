@@ -35,6 +35,17 @@ export const Dashboard = () => {
             try {
                 setHomeLoading(true);
                 const data = await orderService.getHomeData();
+
+                // DEBUG: Log the complete response structure
+                console.log('=== HOME DATA RESPONSE ===');
+                console.log('Full data:', JSON.stringify(data, null, 2));
+                console.log('Total Revenue:', data.totalRevenue);
+                console.log('App Orders:', data.appOrders);
+                console.log('Manual Orders:', data.manualOrders);
+                console.log('Low Stock:', data.lowStockProducts);
+                console.log('Best Seller:', data.bestSellerProduct);
+                console.log('========================');
+
                 setHomeData(data);
             } catch (error) {
                 console.error('Error fetching home data:', error);
