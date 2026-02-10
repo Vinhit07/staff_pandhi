@@ -62,25 +62,25 @@ export const Reports = () => {
                 reportService.getDeliveryTimeOrders(outletId, { from: fromDate, to: toDate }),
             ]);
 
-            // Sales trend
-            setSalesTrend(salesData.data || []);
+            // Sales trend - apiRequest returns data directly
+            setSalesTrend(Array.isArray(salesData) ? salesData : salesData.salesTrend || []);
 
             // Category breakdown with colors
-            const categoriesWithColors = (categoryData.data || []).map((cat, idx) => ({
+            const categoriesWithColors = (Array.isArray(categoryData) ? categoryData : categoryData.breakdown || []).map((cat, idx) => ({
                 ...cat,
                 color: Object.values(CHART_COLORS)[idx % 8],
             }));
             setCategoryBreakdown(categoriesWithColors);
 
             // Order type with colors  
-            const orderTypesWithColors = (orderTypeData.data || []).map((type, idx) => ({
+            const orderTypesWithColors = (Array.isArray(orderTypeData) ? orderTypeData : orderTypeData.breakdown || []).map((type, idx) => ({
                 ...type,
                 color: idx === 0 ? CHART_COLORS.primary : CHART_COLORS.secondary,
             }));
             setOrderTypeBreakdown(orderTypesWithColors);
 
             // Delivery time orders
-            setDeliveryTimeOrders(deliveryData.data || []);
+            setDeliveryTimeOrders(Array.isArray(deliveryData) ? deliveryData : deliveryData.orders || []);
 
         } catch (error) {
             console.error('Error loading report data:', error);

@@ -7,7 +7,7 @@ import { inventoryService, orderService } from '../services';
 import { useAuth } from '../context/AuthContext';
 
 export const ManualOrder = () => {
-    const { user } = useAuth();
+    const { user, outlet } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [cart, setCart] = useState([]);
@@ -28,7 +28,7 @@ export const ManualOrder = () => {
     const fetchMenuItems = async () => {
         try {
             setLoading(true);
-            const outletId = user?.outletId || user?.staffDetails?.outletId;
+            const outletId = outlet?.id || user?.staffDetails?.outletId || user?.outlet?.id;
 
             if (!outletId) {
                 toast.error('No outlet ID found');
@@ -36,16 +36,24 @@ export const ManualOrder = () => {
             }
 
             const response = await inventoryService.getProductsInStock(outletId);
-            if (response.success && response.data) {
+
+            // apiRequest returns data directly, not {success, data}
+            if (response && response.products) {
                 // Transform backend data to match UI format
-                const formattedMenu = (Array.isarray(response.data) ? response.data : []).map(item => ({
+                const formattedMenu = response.products.map(item => ({
                     id: item.id || item.productId,
                     name: item.name || item.productName,
                     price: item.price || item.sellingPrice || 0,
                     category: item.category || 'Other',
-                    available: item.inStock !== false && (item.quantity || item.stock || 0) > 0
+                    description: item.description || '',
+                    imageUrl: item.imageUrl || null,
+                    quantityAvailable: item.quantityAvailable || 0,
+                    available: (item.quantityAvailable || 0) > 0
                 }));
                 setMenuItems(formattedMenu);
+            } else {
+                console.warn('No products found in response:', response);
+                setMenuItems([]);
             }
         } catch (error) {
             console.error('Error fetching menu items:', error);
@@ -106,7 +114,7 @@ export const ManualOrder = () => {
         setProcessing(true);
 
         try {
-            const outletId = user?.outletId || user?.staffDetails?.outletId;
+            const outletId = outlet?.id || user?.staffDetails?.outletId || user?.outlet?.id;
 
             // Prepare order data
             const orderData = {
@@ -125,13 +133,14 @@ export const ManualOrder = () => {
 
             const response = await orderService.addManualOrder(orderData);
 
-            if (response.success) {
-                const newOrderId = response.data?.orderId || response.data?.id || `ORD${Date.now().toString().slice(-6)}`;
+            // Backend returns {message: "...", order: {...}} directly
+            if (response && response.order) {
+                const newOrderId = response.order?.id || `ORD${Date.now().toString().slice(-6)}`;
                 setOrderId(newOrderId);
                 setOrderComplete(true);
-                toast.success('Order created successfully!');
+                toast.success(response.message || 'Order created successfully!');
             } else {
-                throw new Error(response.message || 'Failed to create order');
+                throw new Error(response?.message || 'Failed to create order');
             }
         } catch (error) {
             console.error('Error creating order:', error);
@@ -197,25 +206,54 @@ export const ManualOrder = () => {
                 {/* Menu Grid */}
                 <div className="flex-1 overflow-y-auto mt-4">
                     {filteredMenu.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {filteredMenu.map(item => (
                                 <Card
                                     key={item.id}
-                                    className={`cursor-pointer transition-all hover:scale-[1.02] ${!item.available ? 'opacity-50' : ''
+                                    className={`cursor-pointer transition-all hover:scale-[1.02] overflow-hidden ${!item.available ? 'opacity-50' : ''
                                         }`}
                                     onClick={() => addToCart(item)}
                                 >
-                                    <CardContent className="p-4">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-medium text-foreground">{item.name}</p>
-                                                <p className="text-sm text-muted-foreground">{item.category}</p>
+                                    <CardContent className="p-0">
+                                        {/* Product Image */}
+                                        {item.imageUrl && (
+                                            <div className="w-full h-32 bg-muted overflow-hidden">
+                                                <img
+                                                    src={item.imageUrl}
+                                                    alt={item.name}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => e.target.style.display = 'none'}
+                                                />
                                             </div>
-                                            {!item.available && (
-                                                <Badge variant="destructive" size="sm">Out</Badge>
+                                        )}
+
+                                        {/* Product Details */}
+                                        <div className="p-4">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-foreground line-clamp-1">{item.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{item.category}</p>
+                                                </div>
+                                                {!item.available && (
+                                                    <Badge variant="destructive" size="sm">Out</Badge>
+                                                )}
+                                            </div>
+
+                                            {/* Description */}
+                                            {item.description && (
+                                                <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                                                    {item.description}
+                                                </p>
                                             )}
+
+                                            {/* Price and Stock */}
+                                            <div className="flex justify-between items-center mt-2">
+                                                <p className="font-bold text-primary text-lg">{formatCurrency(item.price)}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Stock: <span className="font-medium">{item.quantityAvailable || 0}</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <p className="font-bold text-primary mt-2">{formatCurrency(item.price)}</p>
                                     </CardContent>
                                 </Card>
                             ))}
@@ -289,65 +327,66 @@ export const ManualOrder = () => {
             </Card>
 
             {/* Payment Modal */}
-            <Modal
+            < Modal
                 isOpen={paymentModal}
                 onClose={orderComplete ? resetOrder : () => setPaymentModal(false)}
                 title={orderComplete ? 'Order Complete' : 'Payment'}
                 size="md"
             >
-                {orderComplete ? (
-                    <div className="text-center py-6">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Check className="h-8 w-8 text-green-600" />
+                {
+                    orderComplete ? (
+                        <div className="text-center py-6" >
+                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Check className="h-8 w-8 text-green-600" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-foreground">Order #{orderId}</h3>
+                            <p className="text-muted-foreground mt-2">Payment successful!</p>
+                            <p className="text-2xl font-bold text-primary mt-4">{formatCurrency(cartTotal)}</p>
+                            <Button onClick={resetOrder} className="mt-6 w-full">
+                                New Order
+                            </Button>
                         </div>
-                        <h3 className="text-2xl font-bold text-foreground">Order #{orderId}</h3>
-                        <p className="text-muted-foreground mt-2">Payment successful!</p>
-                        <p className="text-2xl font-bold text-primary mt-4">{formatCurrency(cartTotal)}</p>
-                        <Button onClick={resetOrder} className="mt-6 w-full">
-                            New Order
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <div className="bg-muted/50 rounded-lg p-4">
-                            <p className="text-sm text-muted-foreground">Total Amount</p>
-                            <p className="text-3xl font-bold text-primary">{formatCurrency(cartTotal)}</p>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="bg-muted/50 rounded-lg p-4">
+                                <p className="text-sm text-muted-foreground">Total Amount</p>
+                                <p className="text-3xl font-bold text-primary">{formatCurrency(cartTotal)}</p>
+                            </div>
+
+                            <p className="font-medium text-foreground">Select Payment Method</p>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { id: 'CASH', icon: Banknote, label: 'Cash' },
+                                    { id: 'UPI', icon: Smartphone, label: 'UPI' },
+                                    { id: 'CARD', icon: CreditCard, label: 'Card' },
+                                ].map(method => (
+                                    <button
+                                        key={method.id}
+                                        onClick={() => setPaymentMethod(method.id)}
+                                        className={`p-4 rounded-lg border-2 transition-all ${paymentMethod === method.id
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'border-input hover:border-primary/50 text-foreground'
+                                            }`}
+                                    >
+                                        <method.icon className="h-6 w-6 mx-auto mb-2" />
+                                        <p className="text-sm font-medium">{method.label}</p>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <Button
+                                onClick={handlePayment}
+                                className="w-full"
+                                loading={processing}
+                                disabled={!paymentMethod || processing}
+                            >
+                                {processing ? 'Processing...' : 'Complete Payment'}
+                            </Button>
                         </div>
-
-                        <p className="font-medium text-foreground">Select Payment Method</p>
-
-                        <div className="grid grid-cols-3 gap-3">
-                            {[
-                                { id: 'CASH', icon: Banknote, label: 'Cash' },
-                                { id: 'UPI', icon: Smartphone, label: 'UPI' },
-                                { id: 'CARD', icon: CreditCard, label: 'Card' },
-                            ].map(method => (
-                                <button
-                                    key={method.id}
-                                    onClick={() => setPaymentMethod(method.id)}
-                                    className={`p-4 rounded-lg border-2 transition-all ${paymentMethod === method.id
-                                        ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-input hover:border-primary/50 text-foreground'
-                                        }`}
-                                >
-                                    <method.icon className="h-6 w-6 mx-auto mb-2" />
-                                    <p className="text-sm font-medium">{method.label}</p>
-                                </button>
-                            ))}
-                        </div>
-
-                        <Button
-                            onClick={handlePayment}
-                            className="w-full"
-                            loading={processing}
-                            disabled={!paymentMethod || processing}
-                        >
-                            {processing ? 'Processing...' : 'Complete Payment'}
-                        </Button>
-                    </div>
-                )}
-            </Modal>
-        </div>
+                    )}
+            </Modal >
+        </div >
     );
 };
 

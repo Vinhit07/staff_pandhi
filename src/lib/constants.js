@@ -31,7 +31,7 @@ export const API_ENDPOINTS = {
     RECENT_ORDERS: '/staff/outlets/get-recent-orders',
     GET_ORDER: '/staff/outlets/get-order',
     UPDATE_ORDER: '/staff/outlets/update-order/',
-    TICKETS_COUNT: '/staff/outlets/tickets/count',
+    TICKETS_COUNT: '/staff/tickets/count/',
 
     // Orders
     ADD_MANUAL_ORDER: '/staff/outlets/add-manual-order/',
@@ -46,7 +46,7 @@ export const API_ENDPOINTS = {
     STOCK_HISTORY: '/staff/outlets/get-stock-history',
 
     // Notifications
-    CURRENT_ORDER: '/staff/outlets/get-current-order',
+    CURRENT_ORDER: '/staff/outlets/get-current-order/',
 
     // Wallet
     RECHARGE_HISTORY: '/staff/outlets/get-recharge-history',

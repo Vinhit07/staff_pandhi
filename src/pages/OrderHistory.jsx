@@ -183,7 +183,7 @@ export const OrderHistory = () => {
                                 ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
                                         <tr key={order.billNumber} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">#{order.billNumber}</td>
+                                            <td className="px-4 py-3 font-medium text-foreground">#{order.orderNumber}</td>
                                             <td className="px-4 py-3 text-foreground">{order.customerName}</td>
                                             <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
                                             <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
@@ -221,7 +221,7 @@ export const OrderHistory = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-sm text-muted-foreground">Customer</p>
-                                <p className="font-medium text-foreground">{selectedOrder.customer}</p>
+                                <p className="font-medium text-foreground">{selectedOrder.customerName}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Date</p>
@@ -242,8 +242,8 @@ export const OrderHistory = () => {
                             <div className="space-y-2">
                                 {selectedOrder.items.map((item, i) => (
                                     <div key={i} className="flex justify-between p-2 bg-muted/50 rounded-lg">
-                                        <span className="text-foreground">{item.name} x{item.qty}</span>
-                                        <span className="font-medium text-foreground">{formatCurrency(item.price)}</span>
+                                        <span className="text-foreground">{item.productName} x{item.quantity}</span>
+                                        <span className="font-medium text-foreground">{formatCurrency(item.unitPrice)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -251,7 +251,7 @@ export const OrderHistory = () => {
 
                         <div className="flex justify-between items-center pt-4 border-t border-border">
                             <span className="text-lg font-bold text-foreground">Total</span>
-                            <span className="text-2xl font-bold text-primary">{formatCurrency(selectedOrder.total)}</span>
+                            <span className="text-2xl font-bold text-primary">{formatCurrency(selectedOrder.totalAmount)}</span>
                         </div>
                     </div>
                 )}

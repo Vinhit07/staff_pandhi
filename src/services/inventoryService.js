@@ -33,9 +33,15 @@ export const inventoryService = {
      * @returns {Promise<Object>} - Updated stock record
      */
     addStock: async (stockData) => {
+        // Backend expects 'addedQuantity' not 'quantity' for add stock
+        const requestBody = {
+            productId: stockData.productId,
+            outletId: stockData.outletId,
+            addedQuantity: stockData.quantity || stockData.addedQuantity,
+        };
         return await apiRequest(API_ENDPOINTS.ADD_STOCK, {
             method: 'POST',
-            body: stockData,
+            body: requestBody,
         });
     },
 
@@ -77,20 +83,24 @@ export const inventoryService = {
     /**
      * Update stock quantity
      * @param {string|number} itemId - Item ID
-     * @param {Object} updateData - Update data (quantity, action: 'add'|'deduct')
+     * @param {Object} updateData - Update data (quantity, action: 'add'|'deduct', outletId)
      * @returns {Promise<Object>} - Updated stock record
      */
     updateStock: async (itemId, updateData) => {
-        const endpoint = updateData.action === 'add'
-            ? API_ENDPOINTS.ADD_STOCK
-            : API_ENDPOINTS.DEDUCT_STOCK;
-
-        return await apiRequest(endpoint, {
-            method: 'POST',
-            body: {
+        if (updateData.action === 'add') {
+            // For add action, use addStock service
+            return await inventoryService.addStock({
                 productId: itemId,
-                ...updateData
-            },
-        });
+                outletId: updateData.outletId,
+                quantity: updateData.quantity,
+            });
+        } else {
+            // For deduct action, use deductStock service
+            return await inventoryService.deductStock({
+                productId: itemId,
+                outletId: updateData.outletId,
+                quantity: updateData.quantity,
+            });
+        }
     },
 };

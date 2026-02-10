@@ -68,6 +68,7 @@ export const SignUp = () => {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
+                retypePassword: formData.confirmPassword,
                 outletCode: formData.outletCode
             });
             toast.success('Registration successful! Please sign in.');
