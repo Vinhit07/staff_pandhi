@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Search, Plus, Wallet as WalletIcon, Loader2 } from 'lucide-react';
+import { RefreshCw, Search, Plus, WalletIcon, Loader2, Calendar } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import { formatCurrency, formatDate } from '../utils/constants';
 import toast from 'react-hot-toast';
+import dayjs from 'dayjs';
 import { useAuth } from '../hooks/useAuth';
 import { walletService } from '../services';
 
@@ -13,6 +14,8 @@ export const Wallet = () => {
 
     const [recharges, setRecharges] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [fromDate, setFromDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
+    const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -48,11 +51,23 @@ export const Wallet = () => {
         }
     };
 
-    // Filter recharges
-    const filteredRecharges = recharges.filter(r =>
-        r.id?.toString().includes(searchTerm.toLowerCase()) ||
-        r.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Quick date selections
+    const setQuickDate = (days) => {
+        setToDate(dayjs().format('YYYY-MM-DD'));
+        setFromDate(dayjs().subtract(days, 'day').format('YYYY-MM-DD'));
+    };
+
+    // Filter recharges by search and date range
+    const filteredRecharges = recharges.filter(r => {
+        const matchesSearch = r.id?.toString().includes(searchTerm.toLowerCase()) ||
+            r.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const rechargeDate = dayjs(r.createdAt);
+        const matchesDate = rechargeDate.isAfter(dayjs(fromDate).subtract(1, 'day')) &&
+            rechargeDate.isBefore(dayjs(toDate).add(1, 'day'));
+
+        return matchesSearch && matchesDate;
+    });
 
     // Handle refresh
     const handleRefresh = () => {
@@ -201,6 +216,34 @@ export const Wallet = () => {
                   placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                             />
                         </div>
+
+                        {/* Quick Date Buttons */}
+                        <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setQuickDate(1)}>Today</Button>
+                            <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
+                            <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
+                        </div>
+
+                        {/* Date Range */}
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-5 w-5 text-muted-foreground" />
+                            <input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                  focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <span className="text-muted-foreground">to</span>
+                            <input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                  focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                        </div>
+
                         <Button variant="ghost" onClick={handleRefresh}>
                             <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                         </Button>

@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import {
     LayoutDashboard,
     Bell,
@@ -67,8 +68,16 @@ const menuItems = [
 ];
 
 export const Sidebar = () => {
-    const { hasPermission, signOut, user } = useAuth();
+    const { hasPermission, logout, user, refreshPermissions } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Refresh permissions when route changes
+    useEffect(() => {
+        if (refreshPermissions) {
+            refreshPermissions();
+        }
+    }, [location.pathname, refreshPermissions]); // Trigger on route change
 
     const handleLogout = async () => {
         try {
