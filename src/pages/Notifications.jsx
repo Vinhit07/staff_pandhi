@@ -200,14 +200,12 @@ export const Notifications = () => {
                     variant={activeTab === 'orders' ? 'default' : 'ghost'}
                     onClick={() => setActiveTab('orders')}
                 >
-                    <Clock className="h-4 w-4" />
                     Orders ({orders.length})
                 </Button>
                 <Button
                     variant={activeTab === 'inventory' ? 'default' : 'ghost'}
                     onClick={() => setActiveTab('inventory')}
                 >
-                    <AlertTriangle className="h-4 w-4" />
                     Inventory ({lowStock.length})
                 </Button>
             </div>

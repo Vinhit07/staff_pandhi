@@ -11,8 +11,6 @@ export const Inventory = () => {
     const { user, outlet } = useAuth();
     const outletId = outlet?.id;
 
-    console.log('Inventory: outletId:', outletId);
-
     const [activeTab, setActiveTab] = useState('stock');
     const [inventory, setInventory] = useState([]);
     const [history, setHistory] = useState([]);
@@ -28,12 +26,10 @@ export const Inventory = () => {
     const [quantity, setQuantity] = useState('');
     const [processing, setProcessing] = useState(false);
 
-    // Fetch stocks on mount
     useEffect(() => {
         fetchStocks();
     }, [outletId]);
 
-    // Fetch stock history when switching to history tab
     useEffect(() => {
         if (activeTab === 'history' && outletId) {
             fetchHistory();
@@ -49,7 +45,6 @@ export const Inventory = () => {
         try {
             setLoading(true);
             const data = await inventoryService.getStocks(outletId);
-            console.log('Inventory: fetchStocks response:', data);
             setInventory(data.stocks || []);
         } catch (error) {
             console.error('Error fetching stocks:', error);
@@ -61,44 +56,27 @@ export const Inventory = () => {
 
     const fetchHistory = async () => {
         if (!outletId) return;
-
         try {
-            // Get date range for last 30 days
             const endDate = dayjs().format('YYYY-MM-DD');
             const startDate = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
-
-            const data = await inventoryService.getStockHistory({
-                outletId,
-                startDate,
-                endDate
-            });
+            const data = await inventoryService.getStockHistory({ outletId, startDate, endDate });
             setHistory(data.history || []);
         } catch (error) {
-            console.error('Error fetching stock history:', error);
             toast.error('Failed to load history');
         }
     };
 
-    // Filter inventory
     const filteredInventory = inventory.filter(item => {
         const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-
-        // Debug filtering
-        // console.log(`Item: ${item.name}, Category: ${item.category}, Selected: ${selectedCategory}, Match: ${matchesCategory}`);
-
         return matchesSearch && matchesCategory;
     });
 
-    console.log('Inventory: Filtered items count:', filteredInventory.length, 'Total items:', inventory.length);
-
-    // Refresh
     const handleRefresh = () => {
         setRefreshing(true);
         fetchStocks().finally(() => setRefreshing(false));
     };
 
-    // Open stock modal
     const openStockModal = (item, type) => {
         setSelectedItem(item);
         setModalType(type);
@@ -106,7 +84,6 @@ export const Inventory = () => {
         setStockModal(true);
     };
 
-    // Update stock
     const handleUpdateStock = async () => {
         const qty = parseInt(quantity);
         if (!qty || qty <= 0) {
@@ -131,25 +108,23 @@ export const Inventory = () => {
             }
 
             setStockModal(false);
-            fetchStocks(); // Refresh stocks
+            fetchStocks();
         } catch (error) {
-            console.error('Error updating stock:', error);
             toast.error('Failed to update stock');
         } finally {
             setProcessing(false);
         }
     };
 
-    // Status badge variant
-    const getStatusVariant = (quantity, threshold) => {
-        if (quantity < threshold * 0.5) return 'destructive';
-        if (quantity < threshold) return 'warning';
-        return 'success';
+    // Updated helper to use yellow for warning states
+    const getStockColorClass = (quantity, threshold) => {
+        if (quantity < threshold * 0.5) return 'bg-red-500';
+        if (quantity < threshold) return 'bg-yellow-500'; // Changed from orange
+        return 'bg-green-500';
     };
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
@@ -160,30 +135,17 @@ export const Inventory = () => {
                 </Button>
             </div>
 
-            {/* Tab Navigation */}
             <div className="flex gap-2">
-                <Button
-                    size="sm"
-                    variant={activeTab === 'stock' ? 'default' : 'outline'}
-                    onClick={() => setActiveTab('stock')}
-                >
-                    <Package className="h-4 w-4" />
-                    Stock Availability
+                <Button size="sm" variant={activeTab === 'stock' ? 'default' : 'outline'} onClick={() => setActiveTab('stock')}>
+                    <Package className="h-4 w-4" /> Stock Availability
                 </Button>
-                <Button
-                    size="sm"
-                    variant={activeTab === 'history' ? 'default' : 'outline'}
-                    onClick={() => setActiveTab('history')}
-                >
-                    <History className="h-4 w-4" />
-                    Stock History
+                <Button size="sm" variant={activeTab === 'history' ? 'default' : 'outline'} onClick={() => setActiveTab('history')}>
+                    <History className="h-4 w-4" /> Stock History
                 </Button>
             </div>
 
-            {/* Tab Content */}
             {activeTab === 'stock' ? (
                 <div className="space-y-4">
-                    {/* Filters */}
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="relative flex-1 min-w-[200px]">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -192,63 +154,68 @@ export const Inventory = () => {
                                 placeholder="Search items..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground 
-                  placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
                             />
                         </div>
                         <div className="flex gap-2 flex-wrap">
                             {CATEGORIES.map(cat => (
-                                <Button
-                                    key={cat}
-                                    size="sm"
-                                    variant={selectedCategory === cat ? 'default' : 'outline'}
-                                    onClick={() => setSelectedCategory(cat)}
-                                >
+                                <Button key={cat} size="sm" variant={selectedCategory === cat ? 'default' : 'outline'} onClick={() => setSelectedCategory(cat)}>
                                     {cat}
                                 </Button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Inventory Grid */}
                     {loading ? (
                         <div className="flex justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : filteredInventory.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                            No inventory items found
-                        </div>
+                        <div className="text-center py-12 text-muted-foreground">No inventory items found</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredInventory.map(item => (
-                                <Card key={item.id}>
+                                <Card key={item.id} className="overflow-hidden">
                                     <CardContent className="p-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <p className="font-semibold text-foreground">{item.name}</p>
-                                                <p className="text-xs text-muted-foreground">{item.category || 'N/A'}</p>
+                                        {/* Header Info */}
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="space-y-1">
+                                                
+                                                <h3 className="font-bold text-lg text-foreground capitalize leading-tight mt-4">
+                                                    {item.name}
+                                                </h3>
+                                                <p className="text-[10px] font-bold text-primary uppercase tracking-wider leading-none">
+                                                    {item.category || 'N/A'}
+                                                </p>
                                             </div>
-                                            <Badge variant={getStatusVariant(item.quantity, item.threshold)}>
-                                                {item.quantity < item.threshold * 0.5 ? 'LOW' :
-                                                    item.quantity < item.threshold ? 'WARNING' : 'GOOD'}
-                                            </Badge>
+                                    </div>
+
+                                    {/* Manual Order Style Stock Bar */}
+                                    <div className="space-y-1.5 mb-5">
+                                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                                            <span className="font-medium">Current Stock</span>
+                                            <span className="font-bold text-foreground bg-muted px-2 py-0.5 rounded">
+                                                {item.quantity} units
+                                            </span>
                                         </div>
-                                        <div className="bg-muted/30 rounded-lg p-3 mb-3">
-                                            <p className="text-xs text-muted-foreground">Current Stock</p>
-                                            <p className="text-xl font-bold text-foreground">
-                                                {item.quantity} <span className="text-sm font-normal text-muted-foreground">units</span>
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">Min: {item.threshold} units</p>
+                                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full transition-all duration-500 ${getStockColorClass(item.quantity, item.threshold)}`}
+                                                style={{ width: `${Math.min((item.quantity / (item.threshold * 2 || 1)) * 100, 100)}%` }}
+                                            />
                                         </div>
+                                        <p className="text-[10px] text-muted-foreground italic">
+                                            Min required: {item.threshold} units
+                                        </p>
+                                    </div>
+
+                                        {/* Action Buttons Updated to Primary Yellow */}
                                         <div className="flex gap-2">
-                                            <Button size="sm" className="flex-1" onClick={() => openStockModal(item, 'add')}>
-                                                <Plus className="h-3 w-3" />
-                                                Add
+                                            <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => openStockModal(item, 'add')}>
+                                                <Plus className="h-3.5 w-3.5 mr-1" /> Add
                                             </Button>
-                                            <Button size="sm" variant="outline" className="flex-1" onClick={() => openStockModal(item, 'deduct')}>
-                                                <Minus className="h-3 w-3" />
-                                                Deduct
+                                            <Button size="sm" variant="outline" className="flex-1 border-primary/20 hover:bg-primary/5" onClick={() => openStockModal(item, 'deduct')}>
+                                                <Minus className="h-3.5 w-3.5 mr-1" /> Deduct
                                             </Button>
                                         </div>
                                     </CardContent>
@@ -258,6 +225,7 @@ export const Inventory = () => {
                     )}
                 </div>
             ) : (
+                /* History Table */
                 <Card>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
@@ -268,33 +236,21 @@ export const Inventory = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Quantity</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">By</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/30">
-                                    {history.length > 0 ? history.map(entry => (
-                                        <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
+                                    {history.map(entry => (
+                                        <tr key={entry.id} className="hover:bg-muted/20">
                                             <td className="px-4 py-3 font-medium text-foreground">{entry.product?.name || 'Unknown'}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={entry.action === 'ADD' ? 'success' : 'warning'}>
                                                     {entry.action === 'ADD' ? '+' : '-'} {entry.action}
                                                 </Badge>
                                             </td>
-                                            <td className="px-4 py-3 text-foreground">
-                                                {entry.quantity} units
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground text-sm">
-                                                {dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm')}
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground text-sm">{'System'}</td>
+                                            <td className="px-4 py-3 text-foreground">{entry.quantity} units</td>
+                                            <td className="px-4 py-3 text-muted-foreground text-sm">{dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm')}</td>
                                         </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
-                                                No history available
-                                            </td>
-                                        </tr>
-                                    )}
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -302,7 +258,6 @@ export const Inventory = () => {
                 </Card>
             )}
 
-            {/* Stock Update Modal */}
             <Modal
                 isOpen={stockModal}
                 onClose={() => setStockModal(false)}
@@ -310,7 +265,7 @@ export const Inventory = () => {
                 footer={
                     <>
                         <Button variant="ghost" onClick={() => setStockModal(false)} disabled={processing}>Cancel</Button>
-                        <Button onClick={handleUpdateStock} loading={processing}>
+                        <Button onClick={handleUpdateStock} loading={processing} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                             {modalType === 'add' ? 'Add Stock' : 'Deduct Stock'}
                         </Button>
                     </>
@@ -319,9 +274,7 @@ export const Inventory = () => {
                 <div className="space-y-4">
                     <div className="bg-muted/30 rounded-lg p-4">
                         <p className="text-sm text-muted-foreground">Current Stock</p>
-                        <p className="text-2xl font-bold text-foreground">
-                            {selectedItem?.quantity} units
-                        </p>
+                        <p className="text-2xl font-bold text-foreground">{selectedItem?.quantity} units</p>
                     </div>
                     <Input
                         label={`Quantity to ${modalType} (units)`}

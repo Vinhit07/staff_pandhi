@@ -23,3 +23,4 @@ export {
     TableCell,
     TableCaption
 } from './Table';
+export { Tooltip } from './Tooltip';

@@ -25,8 +25,6 @@ const CHART_COLORS = {
     chart5: '#D7488E',
 };
 
-
-
 export const Reports = () => {
     const { outlet } = useAuth();
     const outletId = outlet?.id;
@@ -54,7 +52,6 @@ export const Reports = () => {
 
         setLoading(true);
         try {
-            // Fetch all chart data in parallel
             const [salesData, categoryData, orderTypeData, deliveryData] = await Promise.all([
                 reportService.getSalesTrend(outletId, { from: fromDate, to: toDate }),
                 reportService.getCategoryBreakdown(outletId, { from: fromDate, to: toDate }),
@@ -62,24 +59,30 @@ export const Reports = () => {
                 reportService.getDeliveryTimeOrders(outletId, { from: fromDate, to: toDate }),
             ]);
 
-            // Sales trend - apiRequest returns data directly
             setSalesTrend(Array.isArray(salesData) ? salesData : salesData.salesTrend || []);
 
-            // Category breakdown with colors
-            const categoriesWithColors = (Array.isArray(categoryData) ? categoryData : categoryData.breakdown || []).map((cat, idx) => ({
+            // FIX: Normalize category data to ensure a "value" key exists for the Pie chart
+            const rawCategories = Array.isArray(categoryData) ? categoryData : (categoryData.breakdown || []);
+            const categoriesWithColors = rawCategories.map((cat, idx) => ({
                 ...cat,
+                // Ensure there is a 'value' property for Recharts to read
+                value: Number(cat.value || cat.count || cat.revenue || 0),
+                // Ensure there is a 'name' property for the legend/label
+                name: cat.categoryName || cat.name || "Unknown",
                 color: Object.values(CHART_COLORS)[idx % 8],
             }));
             setCategoryBreakdown(categoriesWithColors);
 
-            // Order type with colors  
-            const orderTypesWithColors = (Array.isArray(orderTypeData) ? orderTypeData : orderTypeData.breakdown || []).map((type, idx) => ({
+            // Normalize Order type to ensure 'value' key exists
+            const rawOrderTypes = Array.isArray(orderTypeData) ? orderTypeData : (orderTypeData.breakdown || []);
+            const orderTypesWithColors = rawOrderTypes.map((type, idx) => ({
                 ...type,
+                value: Number(type.value || type.count || 0),
+                name: type.type || type.name || "Unknown",
                 color: idx === 0 ? CHART_COLORS.primary : CHART_COLORS.secondary,
             }));
             setOrderTypeBreakdown(orderTypesWithColors);
 
-            // Delivery time orders
             setDeliveryTimeOrders(Array.isArray(deliveryData) ? deliveryData : deliveryData.orders || []);
 
         } catch (error) {
@@ -149,7 +152,6 @@ export const Reports = () => {
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Reports & Analytics</h1>
@@ -161,10 +163,8 @@ export const Reports = () => {
                 </Button>
             </div>
 
-            {/* Date Range Controls */}
-            <Card>
-                <CardContent className="py-4">
-                    <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+                        <h3>Select Date Range</h3>
                         <div className="flex gap-2">
                             <Button
                                 variant={dayjs(toDate).diff(fromDate, 'day') === 7 ? 'default' : 'outline'}
@@ -190,30 +190,23 @@ export const Reports = () => {
                         </div>
 
                         <div className="flex items-center gap-2 ml-auto">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
                             <input
                                 type="date"
                                 value={fromDate}
                                 onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
-                  focus:outline-none focus:ring-2 focus:ring-ring"
+                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                             />
                             <span className="text-muted-foreground">to</span>
                             <input
                                 type="date"
                                 value={toDate}
                                 onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
-                  focus:outline-none focus:ring-2 focus:ring-ring"
+                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                             />
                         </div>
                     </div>
-                </CardContent>
-            </Card>
-
-            {/* Charts */}
-            <div ref={reportRef} className="space-y-6 bg-card p-4 rounded-xl border-2 border-border">
-                {/* Row 1: Sales Trend + Order Type */}
+            
+            <div ref={reportRef} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                         <CardHeader>
@@ -246,7 +239,6 @@ export const Reports = () => {
                                         labelLine={false}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={100}
-                                        fill="#8884d8"
                                         dataKey="value"
                                     >
                                         {orderTypeBreakdown.map((entry, index) => (
@@ -261,7 +253,6 @@ export const Reports = () => {
                     </Card>
                 </div>
 
-                {/* Row 2: Category + Delivery Time */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                         <CardHeader>
@@ -277,7 +268,6 @@ export const Reports = () => {
                                         labelLine={false}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={100}
-                                        fill="#8884d8"
                                         dataKey="value"
                                     >
                                         {categoryBreakdown.map((entry, index) => (

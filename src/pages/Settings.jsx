@@ -271,8 +271,8 @@ export const Settings = () => {
                             <div
                                 key={index}
                                 className={`p-4 rounded-lg border-2 ${perm.isGranted
-                                        ? 'bg-green-50 border-green-200'
-                                        : 'bg-muted/50 border-border'
+                                    ? 'bg-green-50 border-green-200'
+                                    : 'bg-muted/50 border-border'
                                     }`}
                             >
                                 <div className="flex items-center gap-2">

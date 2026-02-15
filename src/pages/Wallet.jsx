@@ -198,13 +198,9 @@ export const Wallet = () => {
             </div>
 
             {/* Recharge History */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recharge History</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <h1 className="text-xl font-bold text-foreground">Recharge History</h1>
                     {/* Filters */}
-                    <div className="flex flex-wrap gap-4 mb-4">
+                    <div className="flex flex-wrap items-center gap-4 mb-4">
                         <div className="relative flex-1 min-w-[250px]">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                             <input
@@ -218,7 +214,7 @@ export const Wallet = () => {
                         </div>
 
                         {/* Quick Date Buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                             <Button size="sm" variant="outline" onClick={() => setQuickDate(1)}>Today</Button>
                             <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
                             <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
@@ -226,7 +222,6 @@ export const Wallet = () => {
 
                         {/* Date Range */}
                         <div className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
                             <input
                                 type="date"
                                 value={fromDate}
@@ -248,17 +243,18 @@ export const Wallet = () => {
                             <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                         </Button>
                     </div>
-
+            <Card>
+                <CardContent>  
                     {/* Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-muted/50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Transaction ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Customer</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Method</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Transaction ID</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Customer</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Method</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Amount</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">

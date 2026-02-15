@@ -21,7 +21,7 @@ export const OrderHistory = () => {
     // Details modal
     const [detailsModal, setDetailsModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
-
+    const [selectedFilter, setSelectedFilter] = useState('0');
     // Fetch ALL order history once on mount
     useEffect(() => {
         fetchAllOrders();
@@ -135,8 +135,7 @@ export const OrderHistory = () => {
             </div>
 
             {/* Filters */}
-            <Card>
-                <CardContent className="py-4">
+            
                     <div className="flex flex-wrap items-center gap-4">
                         {/* Search */}
                         <div className="relative flex-1 min-w-[200px]">
@@ -176,24 +175,23 @@ export const OrderHistory = () => {
                             </Button>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
-
+                
             {/* Orders Table */}
             <Card>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-muted/50">
+                            <thead className="bg-muted/50 border-b border-gray-200">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Customer</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Order ID</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Total</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
+                            <div className="overflow-y-auto"/>
                             <tbody className="divide-y divide-border">
                                 {loading ? (
                                     <tr>
@@ -203,9 +201,9 @@ export const OrderHistory = () => {
                                     </tr>
                                 ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
-                                        <tr key={order.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">{order.orderNumber}</td>
-                                            <td className="px-4 py-3 text-foreground">{order.customerName}</td>
+                                        <tr key={order.id} className=" hover:bg-muted/30 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-sm">{order.orderNumber}</td>
+                                            <td className="px-4 py-3 text-sm">{order.customerName}</td>
                                             <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
                                             <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
                                             <td className="px-4 py-3">
