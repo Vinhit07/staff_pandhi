@@ -206,7 +206,7 @@ export const Dashboard = () => {
             value: homeData.manualOrders || 0,
             icon: Users,
             trend: 'Manual orders',
-            color: 'text-foreground'
+            color: 'text-blue-500'
         },
         {
             title: 'Low Stock Items',
@@ -243,16 +243,23 @@ export const Dashboard = () => {
                     ))
                 ) : (
                     stats.map((stat, index) => (
-                        <Card key={index}>
-                            <CardHeader className="pb-2">
-                                <CardDescription className="text-xs">{stat.title}</CardDescription>
-                                <CardTitle className={`text-2xl ${stat.color}`}>{stat.value}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-xs text-muted-foreground">{stat.trend}</p>
-                            </CardContent>
-                        </Card>
-                    ))
+    <Card key={index}>
+        <CardHeader className="pb-2">
+            {/* Changed from CardDescription to a bold h3 for a bigger, punchier title */}
+            <h3 className="text-lg font-bold text-foreground mb-1">
+                {stat.title}
+            </h3>
+            <CardTitle className={`text-3xl font-extrabold ${stat.color}`}>
+                {stat.value}
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <p className="text-xs text-muted-foreground font-medium">
+                {stat.trend}
+            </p>
+        </CardContent>
+    </Card>
+))
                 )}
             </div>
 

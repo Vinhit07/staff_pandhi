@@ -248,13 +248,13 @@ export const Wallet = () => {
                     {/* Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-muted/50">
+                            <thead className="bg-muted/50 border-b border-gray-200">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Transaction ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Customer</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Method</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Amount</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Transaction ID</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Method</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
