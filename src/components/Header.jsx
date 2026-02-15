@@ -1,7 +1,9 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ROUTES } from '../utils/constants';
 import { ThemeToggle } from './ThemeToggle';
+import { LogOut, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 // Map routes to page titles
 const pageTitles = {
@@ -17,7 +19,9 @@ const pageTitles = {
 
 export const Header = () => {
     const location = useLocation();
-    const { user } = useAuth();
+    const navigate = useNavigate();
+    const { user, signOut } = useAuth();
+    const [showDropdown, setShowDropdown] = useState(false);
 
     const currentPageTitle = pageTitles[location.pathname] || 'Dashboard';
 
@@ -30,6 +34,18 @@ export const Header = () => {
             .join('')
             .toUpperCase()
             .slice(0, 2);
+    };
+
+    // Handle logout
+    const handleLogout = async (e) => {
+        e.stopPropagation();
+        setShowDropdown(false);
+        try {
+            await signOut();
+            navigate('/signin');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
     };
 
     return (
@@ -52,9 +68,12 @@ export const Header = () => {
             </div>
 
             {/* User Section - Pill shaped */}
-            <div className="header-pill">
+            <div className="header-pill relative">
                 <ThemeToggle />
-                <div className="flex items-center gap-3">
+                <div
+                    className="flex items-center gap-3 cursor-pointer"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                >
                     <div className="text-right">
                         <p className="text-sm font-medium text-foreground">{user?.name || 'Staff User'}</p>
                         <p className="text-xs text-muted-foreground">{user?.designation || 'Staff Member'}</p>
@@ -72,7 +91,27 @@ export const Header = () => {
                             </span>
                         )}
                     </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </div>
+
+                {/* Dropdown Menu */}
+                {showDropdown && (
+                    <>
+                        <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setShowDropdown(false)}
+                        />
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-background border-2 border-border rounded-xl shadow-lg z-50">
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors rounded-xl"
+                            >
+                                <LogOut className="h-4 w-4 text-destructive" />
+                                <span className="text-sm font-medium text-destructive">Logout</span>
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         </header>
     );

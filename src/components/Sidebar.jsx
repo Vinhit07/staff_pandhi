@@ -79,9 +79,13 @@ export const Sidebar = () => {
         }
     }, [location.pathname, refreshPermissions]); // Trigger on route change
 
-    const handleLogout = () => {
-        logout();
-        navigate(ROUTES.SIGNIN);
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            navigate(ROUTES.SIGNIN);
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
     };
 
     return (
