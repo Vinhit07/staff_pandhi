@@ -25,6 +25,16 @@ const CHART_COLORS = {
     chart5: '#D7488E',
 };
 
+// Convert delivery slot enum to readable label
+const formatDeliverySlot = (slot) => {
+    if (!slot) return slot;
+    const match = slot.match(/SLOT_(\d+)_(\d+)/);
+    if (match) {
+        return `${match[1]}:00 - ${match[2]}:00`;
+    }
+    return slot;
+};
+
 export const Reports = () => {
     const { outlet } = useAuth();
     const outletId = outlet?.id;
@@ -83,7 +93,11 @@ export const Reports = () => {
             }));
             setOrderTypeBreakdown(orderTypesWithColors);
 
-            setDeliveryTimeOrders(Array.isArray(deliveryData) ? deliveryData : deliveryData.orders || []);
+            const rawDelivery = Array.isArray(deliveryData) ? deliveryData : deliveryData.orders || [];
+            setDeliveryTimeOrders(rawDelivery.map(item => ({
+                ...item,
+                slot: formatDeliverySlot(item.slot) || item.slot,
+            })));
 
         } catch (error) {
             console.error('Error loading report data:', error);
@@ -164,48 +178,48 @@ export const Reports = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-                        <h3>Select Date Range</h3>
-                        <div className="flex gap-2">
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 7 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(7)}
-                            >
-                                7 Days
-                            </Button>
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 30 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(30)}
-                            >
-                                30 Days
-                            </Button>
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 90 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(90)}
-                            >
-                                90 Days
-                            </Button>
-                        </div>
+                <h3>Select Date Range</h3>
+                <div className="flex gap-2">
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 7 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(7)}
+                    >
+                        7 Days
+                    </Button>
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 30 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(30)}
+                    >
+                        30 Days
+                    </Button>
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 90 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(90)}
+                    >
+                        90 Days
+                    </Button>
+                </div>
 
-                        <div className="flex items-center gap-2 ml-auto">
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
-                    </div>
-            
+                <div className="flex items-center gap-2 ml-auto">
+                    <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                </div>
+            </div>
+
             <div ref={reportRef} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
