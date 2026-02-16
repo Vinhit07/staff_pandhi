@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Package, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Check, X, Package, Clock, AlertTriangle, RefreshCw, Search } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import toast from 'react-hot-toast';
 import { orderService, inventoryService } from '../services';
@@ -14,6 +14,13 @@ export const Notifications = () => {
     const [lowStock, setLowStock] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Filter orders based on search
+    const filteredOrders = orders.filter(order =>
+        order.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customer?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     // Restock modal
     const [restockModal, setRestockModal] = useState(false);
@@ -181,6 +188,7 @@ export const Notifications = () => {
         );
     }
 
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -194,61 +202,83 @@ export const Notifications = () => {
                 </Button>
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex gap-2 border-b border-border pb-2">
-                <Button
-                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('orders')}
-                >
-                    Orders ({orders.length})
-                </Button>
-                <Button
-                    variant={activeTab === 'inventory' ? 'default' : 'ghost'}
-                    onClick={() => setActiveTab('inventory')}
-                >
-                    Inventory ({lowStock.length})
-                </Button>
+            {/* Tab Navigation & Search */}
+            <div className="flex flex-col md:flex-row gap-4 border-b border-border pb-4 justify-between items-end md:items-center">
+                <div className="flex gap-2">
+                    <Button
+                        variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                        onClick={() => setActiveTab('orders')}
+                    >
+                        Orders ({orders.length})
+                    </Button>
+                    <Button
+                        variant={activeTab === 'inventory' ? 'default' : 'ghost'}
+                        onClick={() => setActiveTab('inventory')}
+                    >
+                        Inventory ({lowStock.length})
+                    </Button>
+                </div>
+
+                {/* Search Bar - Only show when on orders tab */}
+                {activeTab === 'orders' && (
+                    <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search Order # or Customer"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 h-9"
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Tab Content */}
             {activeTab === 'orders' ? (
-                <div className="space-y-4">
-                    {orders.length > 0 ? (
-                        orders.map(order => (
-                            <Card key={order.id} className="order-card">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredOrders.length > 0 ? (
+                        filteredOrders.map(order => (
+                            <Card key={order.id} className="order-card flex flex-col h-full">
+                                <CardContent className="p-4 flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
                                             <span className="font-bold text-foreground text-lg">#{order.id}</span>
                                             {/* <Badge variant="warning">{order.slot}</Badge> */}
                                         </div>
-                                        <p className="font-medium text-foreground">{order.customer}</p>
-                                        <div className="text-sm text-muted-foreground mt-1">
-                                            {order.items.map((item, i) => (
-                                                <span key={i} className="block">{item}</span>
-                                            ))}
-                                        </div>
-                                        <p className="font-bold text-primary mt-2">₹{order.total}</p>
+                                        <p className="font-bold text-primary">₹{order.total}</p>
                                     </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Button size="sm" onClick={() => handleDeliver(order.id)}>
-                                            <Check className="h-4 w-4" />
+
+                                    <p className="font-medium text-foreground mb-1">{order.customer}</p>
+
+                                    <div className="text-sm text-muted-foreground flex-1 mb-4 space-y-1">
+                                        {order.items.map((item, i) => (
+                                            <span key={i} className="block line-clamp-1" title={item}>• {item}</span>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                                        <Button size="sm" onClick={() => handleDeliver(order.id)} className="w-full">
+                                            <Check className="h-4 w-4 mr-1" />
                                             Deliver
                                         </Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleCancel(order.id)}>
-                                            <X className="h-4 w-4" />
+                                        <Button size="sm" variant="destructive" onClick={() => handleCancel(order.id)} className="w-full">
+                                            <X className="h-4 w-4 mr-1" />
                                             Cancel
                                         </Button>
                                     </div>
-                                </div>
+                                </CardContent>
                             </Card>
                         ))
                     ) : (
-                        <Card>
+                        <Card className="col-span-full">
                             <CardContent className="py-12 text-center">
                                 <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                                <p className="text-lg font-medium text-foreground">No pending orders</p>
-                                <p className="text-muted-foreground">All orders have been processed</p>
+                                <p className="text-lg font-medium text-foreground">
+                                    {searchTerm ? 'No matching orders found' : 'No pending orders'}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    {searchTerm ? 'Try a different search term' : 'All orders have been processed'}
+                                </p>
                             </CardContent>
                         </Card>
                     )}

@@ -168,13 +168,13 @@ export const OrderHistory = () => {
                     >
                         7 Days
                     </Button>
-                    <Button
+                    {/* <Button
                         size="sm"
                         variant={selectedFilter === '30' ? 'default' : 'outline'}
                         onClick={() => setQuickDate(30)}
                     >
                         30 Days
-                    </Button>
+                    </Button> */}
                 </div>
             </div>
 
