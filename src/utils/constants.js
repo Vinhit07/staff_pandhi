@@ -75,6 +75,7 @@ export const formatDate = (date) => {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        timeZone: 'Asia/Kolkata',
     });
 };
 
@@ -87,5 +88,6 @@ export const formatDateTime = (date) => {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Kolkata',
     });
 };

@@ -5,6 +5,8 @@ import { formatCurrency, formatDate, formatDateTime } from '../utils/constants';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 import { useAuth } from '../hooks/useAuth';
 import { orderService } from '../services';
 
@@ -36,13 +38,13 @@ export const OrderHistory = () => {
         try {
             setLoading(true);
             // Fetch last 90 days of orders (or adjust as needed for your use case)
-            const ninetyDaysAgo = dayjs().subtract(90, 'day').format('YYYY-MM-DD');
-            const today = dayjs().format('YYYY-MM-DD');
+            const ninetyDaysAgo = dayjs.utc().subtract(90, 'day').format('YYYY-MM-DD');
+            const tomorrow = dayjs.utc().add(1, 'day').format('YYYY-MM-DD');
 
             const data = await orderService.getOrderHistory({
                 outletId,
                 from: ninetyDaysAgo,
-                to: today,
+                to: tomorrow,
             });
             setOrders(data.orders || []);
         } catch (error) {
@@ -61,8 +63,8 @@ export const OrderHistory = () => {
             order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
 
         // Apply date filter
-        const orderDate = dayjs(order.createdAt);
-        const today = dayjs();
+        const orderDate = dayjs.utc(order.createdAt);
+        const today = dayjs.utc();
         let matchesDate = true;
 
         if (selectedFilter === '0') {
@@ -135,47 +137,47 @@ export const OrderHistory = () => {
             </div>
 
             {/* Filters */}
-            
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-[200px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search by Order ID or Customer..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground 
-                  placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
 
-                        {/* Quick Date Buttons */}
-                        <div className="flex gap-2">
-                            <Button
-                                size="sm"
-                                variant={selectedFilter === '0' ? 'default' : 'outline'}
-                                onClick={() => setQuickDate(0)}
-                            >
-                                Today
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={selectedFilter === '7' ? 'default' : 'outline'}
-                                onClick={() => setQuickDate(7)}
-                            >
-                                7 Days
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={selectedFilter === '30' ? 'default' : 'outline'}
-                                onClick={() => setQuickDate(30)}
-                            >
-                                30 Days
-                            </Button>
-                        </div>
-                    </div>
-                
+            <div className="flex flex-wrap items-center gap-4">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Search by Order ID or Customer..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground 
+                  placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                </div>
+
+                {/* Quick Date Buttons */}
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '0' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(0)}
+                    >
+                        Today
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '7' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(7)}
+                    >
+                        7 Days
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '30' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(30)}
+                    >
+                        30 Days
+                    </Button>
+                </div>
+            </div>
+
             {/* Orders Table */}
             <Card>
                 <CardContent className="p-0">
@@ -191,7 +193,7 @@ export const OrderHistory = () => {
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <div className="overflow-y-auto"/>
+                            <div className="overflow-y-auto" />
                             <tbody className="divide-y divide-border">
                                 {loading ? (
                                     <tr>
@@ -233,7 +235,7 @@ export const OrderHistory = () => {
             <Modal
                 isOpen={detailsModal}
                 onClose={() => setDetailsModal(false)}
-                title={`Order #${selectedOrder?.billNumber}`}
+                title={`Order #${selectedOrder?.orderNumber?.replace(/\D/g, '') || selectedOrder?.id}`}
             >
                 {selectedOrder && (
                     <div className="space-y-4">

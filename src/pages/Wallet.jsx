@@ -14,7 +14,7 @@ export const Wallet = () => {
 
     const [recharges, setRecharges] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [fromDate, setFromDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
+    const [fromDate, setFromDate] = useState(dayjs().subtract(365, 'day').format('YYYY-MM-DD'));
     const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -62,9 +62,8 @@ export const Wallet = () => {
         const matchesSearch = r.id?.toString().includes(searchTerm.toLowerCase()) ||
             r.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const rechargeDate = dayjs(r.createdAt);
-        const matchesDate = rechargeDate.isAfter(dayjs(fromDate).subtract(1, 'day')) &&
-            rechargeDate.isBefore(dayjs(toDate).add(1, 'day'));
+        const rechargeDate = dayjs(r.createdAt).format('YYYY-MM-DD');
+        const matchesDate = rechargeDate >= fromDate && rechargeDate <= toDate;
 
         return matchesSearch && matchesDate;
     });
@@ -199,52 +198,52 @@ export const Wallet = () => {
 
             {/* Recharge History */}
             <h1 className="text-xl font-bold text-foreground">Recharge History</h1>
-                    {/* Filters */}
-                    <div className="flex flex-wrap items-center gap-4 mb-4">
-                        <div className="relative flex-1 min-w-[250px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search by Transaction ID or Name..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+                <div className="relative flex-1 min-w-[250px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Search by Transaction ID or Name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground
                   placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
+                    />
+                </div>
 
-                        {/* Quick Date Buttons */}
-                        <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(1)}>Today</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
-                        </div>
+                {/* Quick Date Buttons */}
+                <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(0)}>Today</Button>
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
+                </div>
 
-                        {/* Date Range */}
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                {/* Date Range */}
+                <div className="flex items-center gap-2">
+                    <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
                   focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
                   focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
+                    />
+                </div>
 
-                        <Button variant="ghost" onClick={handleRefresh}>
-                            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-                        </Button>
-                    </div>
+                <Button variant="ghost" onClick={handleRefresh}>
+                    <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+            </div>
             <Card>
-                <CardContent>  
+                <CardContent>
                     {/* Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full">
