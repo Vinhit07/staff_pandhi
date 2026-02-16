@@ -14,7 +14,7 @@ const Table = forwardRef(({ className = '', children, ...props }, ref) => (
 Table.displayName = 'Table';
 
 const TableHeader = forwardRef(({ className = '', children, ...props }, ref) => (
-    <thead ref={ref} className={`[&_tr]:border-b ${className}`} {...props}>
+    <thead ref={ref} className={`[&_tr]:border-b [&_tr]:border-border/40 ${className}`} {...props}>
         {children}
     </thead>
 ));
@@ -45,7 +45,7 @@ TableFooter.displayName = 'TableFooter';
 const TableRow = forwardRef(({ className = '', children, ...props }, ref) => (
     <tr
         ref={ref}
-        className={`border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`}
+        className={`border-b border-border/30 transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`}
         {...props}
     >
         {children}
@@ -56,7 +56,7 @@ TableRow.displayName = 'TableRow';
 const TableHead = forwardRef(({ className = '', children, ...props }, ref) => (
     <th
         ref={ref}
-        className={`h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] ${className}`}
+        className={`h-11 px-4 text-left align-middle text-[11px] font-semibold uppercase tracking-wider text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] ${className}`}
         {...props}
     >
         {children}
@@ -67,7 +67,7 @@ TableHead.displayName = 'TableHead';
 const TableCell = forwardRef(({ className = '', children, ...props }, ref) => (
     <td
         ref={ref}
-        className={`p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] ${className}`}
+        className={`px-4 py-3.5 align-middle text-sm [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] ${className}`}
         {...props}
     >
         {children}

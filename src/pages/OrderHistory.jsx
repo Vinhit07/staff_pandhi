@@ -1,49 +1,93 @@
-import { useState } from 'react';
-import { Search, Download, Calendar, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Calendar, Eye, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../components/ui';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/constants';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-
-// Mock data
-const MOCK_ORDERS = [
-    { id: '1001', customer: 'Rahul Sharma', date: '2026-01-28T10:30:00', items: [{ name: 'Butter Chicken', qty: 1, price: 250 }], total: 250, status: 'DELIVERED', paymentMethod: 'CASH' },
-    { id: '1002', customer: 'Priya Patel', date: '2026-01-28T11:15:00', items: [{ name: 'Veg Thali', qty: 2, price: 240 }], total: 240, status: 'DELIVERED', paymentMethod: 'UPI' },
-    { id: '1003', customer: 'Amit Kumar', date: '2026-01-27T12:00:00', items: [{ name: 'Biryani', qty: 1, price: 180 }], total: 180, status: 'CANCELLED', paymentMethod: 'CARD' },
-    { id: '1004', customer: 'Sneha Reddy', date: '2026-01-27T09:45:00', items: [{ name: 'Samosa', qty: 4, price: 80 }], total: 80, status: 'DELIVERED', paymentMethod: 'CASH' },
-    { id: '1005', customer: 'Vikram Singh', date: '2026-01-26T14:20:00', items: [{ name: 'Cold Coffee', qty: 2, price: 180 }], total: 180, status: 'DELIVERED', paymentMethod: 'UPI' },
-];
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+import { useAuth } from '../hooks/useAuth';
+import { orderService } from '../services';
 
 export const OrderHistory = () => {
-    const [orders] = useState(MOCK_ORDERS);
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
+
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [fromDate, setFromDate] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+    const [fromDate, setFromDate] = useState(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
     const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
 
     // Details modal
     const [detailsModal, setDetailsModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [selectedFilter, setSelectedFilter] = useState('0');
+    // Fetch ALL order history once on mount
+    useEffect(() => {
+        fetchAllOrders();
+    }, [outletId]);
 
-    // Filter orders
+    const fetchAllOrders = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            // Fetch last 90 days of orders (or adjust as needed for your use case)
+            const ninetyDaysAgo = dayjs.utc().subtract(90, 'day').format('YYYY-MM-DD');
+            const tomorrow = dayjs.utc().add(1, 'day').format('YYYY-MM-DD');
+
+            const data = await orderService.getOrderHistory({
+                outletId,
+                from: ninetyDaysAgo,
+                to: tomorrow,
+            });
+            setOrders(data.orders || []);
+        } catch (error) {
+            console.error('Error fetching order history:', error);
+            toast.error('Failed to load order history');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Filter orders based on search term AND date filter (frontend only)
     const filteredOrders = orders.filter(order => {
+        // Apply search filter
         const matchesSearch =
-            order.id.includes(searchTerm) ||
-            order.customer.toLowerCase().includes(searchTerm.toLowerCase());
-        const orderDate = dayjs(order.date);
-        const matchesDate = orderDate.isAfter(dayjs(fromDate).subtract(1, 'day')) &&
-            orderDate.isBefore(dayjs(toDate).add(1, 'day'));
+            order.orderNumber?.toString().includes(searchTerm) ||
+            order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Apply date filter
+        const orderDate = dayjs.utc(order.createdAt);
+        const today = dayjs.utc();
+        let matchesDate = true;
+
+        if (selectedFilter === '0') {
+            // Today only
+            matchesDate = orderDate.isSame(today, 'day');
+        } else if (selectedFilter === '7') {
+            // Last 7 days
+            matchesDate = orderDate.isAfter(today.subtract(7, 'day'));
+        } else if (selectedFilter === '30') {
+            // Last 30 days
+            matchesDate = orderDate.isAfter(today.subtract(30, 'day'));
+        }
+
         return matchesSearch && matchesDate;
     });
 
     // Export to Excel
     const handleExport = () => {
         const data = filteredOrders.map(order => ({
-            'Order ID': order.id,
-            'Customer': order.customer,
-            'Date': formatDateTime(order.date),
-            'Items': order.items.map(i => `${i.name} x${i.qty}`).join(', '),
-            'Total': order.total,
+            'Order ID': order.orderNumber,
+            'Customer': order.customerName,
+            'Date': formatDateTime(order.createdAt),
+            'Total': order.totalAmount,
             'Status': order.status,
             'Payment': order.paymentMethod,
         }));
@@ -51,7 +95,9 @@ export const OrderHistory = () => {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-        XLSX.writeFile(wb, `Orders_${fromDate}_to_${toDate}.xlsx`);
+
+        const filterLabel = selectedFilter === '0' ? 'Today' : selectedFilter === '7' ? '7Days' : '30Days';
+        XLSX.writeFile(wb, `Orders_${filterLabel}_${dayjs().format('YYYY-MM-DD')}.xlsx`);
         toast.success('Excel file downloaded');
     };
 
@@ -63,18 +109,17 @@ export const OrderHistory = () => {
 
     // Status badge variant
     const getStatusVariant = (status) => {
-        switch (status) {
-            case 'DELIVERED': return 'success';
+        switch (status?.toUpperCase()) {
+            case 'DELIVERED': case 'COMPLETED': return 'success';
             case 'CANCELLED': return 'destructive';
-            case 'PENDING': return 'warning';
+            case 'PENDING': case 'PREPARING': return 'warning';
             default: return 'default';
         }
     };
 
-    // Quick date selections
+    // Quick date selections (now just updates the filter state)
     const setQuickDate = (days) => {
-        setToDate(dayjs().format('YYYY-MM-DD'));
-        setFromDate(dayjs().subtract(days, 'day').format('YYYY-MM-DD'));
+        setSelectedFilter(days.toString());
     };
 
     return (
@@ -92,75 +137,77 @@ export const OrderHistory = () => {
             </div>
 
             {/* Filters */}
-            <Card>
-                <CardContent className="py-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-[200px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search by Order ID or Customer..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground 
+
+            <div className="flex flex-wrap items-center gap-4">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Search by Order ID or Customer..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground 
                   placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
+                    />
+                </div>
 
-                        {/* Quick Date Buttons */}
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(1)}>Today</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
-                            <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
-                        </div>
-
-                        {/* Date Range */}
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground 
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground 
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                {/* Quick Date Buttons */}
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '0' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(0)}
+                    >
+                        Today
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '7' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(7)}
+                    >
+                        7 Days
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={selectedFilter === '30' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate(30)}
+                    >
+                        30 Days
+                    </Button>
+                </div>
+            </div>
 
             {/* Orders Table */}
             <Card>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-muted/50">
+                            <thead className="bg-muted/50 border-b border-gray-200">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Customer</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Order ID</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Total</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
+                            <div className="overflow-y-auto" />
                             <tbody className="divide-y divide-border">
-                                {filteredOrders.length > 0 ? (
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-8 text-center">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground inline" />
+                                        </td>
+                                    </tr>
+                                ) : filteredOrders.length > 0 ? (
                                     filteredOrders.map(order => (
-                                        <tr key={order.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-foreground">#{order.id}</td>
-                                            <td className="px-4 py-3 text-foreground">{order.customer}</td>
-                                            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.date)}</td>
-                                            <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.total)}</td>
+                                        <tr key={order.id} className=" hover:bg-muted/30 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-sm">{order.orderNumber}</td>
+                                            <td className="px-4 py-3 text-sm">{order.customerName}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
+                                            <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
                                             </td>
@@ -188,18 +235,18 @@ export const OrderHistory = () => {
             <Modal
                 isOpen={detailsModal}
                 onClose={() => setDetailsModal(false)}
-                title={`Order #${selectedOrder?.id}`}
+                title={`Order #${selectedOrder?.orderNumber?.replace(/\D/g, '') || selectedOrder?.id}`}
             >
                 {selectedOrder && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-sm text-muted-foreground">Customer</p>
-                                <p className="font-medium text-foreground">{selectedOrder.customer}</p>
+                                <p className="font-medium text-foreground">{selectedOrder.customerName}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Date</p>
-                                <p className="font-medium text-foreground">{formatDateTime(selectedOrder.date)}</p>
+                                <p className="font-medium text-foreground">{formatDateTime(selectedOrder.createdAt)}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Payment Method</p>
@@ -214,10 +261,10 @@ export const OrderHistory = () => {
                         <div className="border-t border-border pt-4">
                             <p className="font-medium text-foreground mb-2">Items</p>
                             <div className="space-y-2">
-                                {selectedOrder.items.map((item, i) => (
-                                    <div key={i} className="flex justify-between p-2 bg-muted/50 rounded-lg">
-                                        <span className="text-foreground">{item.name} x{item.qty}</span>
-                                        <span className="font-medium text-foreground">{formatCurrency(item.price)}</span>
+                                {selectedOrder.items?.map((item, i) => (
+                                    <div key={`${selectedOrder.id}-item-${i}`} className="flex justify-between p-2 bg-muted/50 rounded-lg">
+                                        <span className="text-foreground">{item.name || item.productName} x{item.quantity}</span>
+                                        <span className="font-medium text-foreground">{formatCurrency(item.unitPrice)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -225,7 +272,7 @@ export const OrderHistory = () => {
 
                         <div className="flex justify-between items-center pt-4 border-t border-border">
                             <span className="text-lg font-bold text-foreground">Total</span>
-                            <span className="text-2xl font-bold text-primary">{formatCurrency(selectedOrder.total)}</span>
+                            <span className="text-2xl font-bold text-primary">{formatCurrency(selectedOrder.totalAmount)}</span>
                         </div>
                     </div>
                 )}

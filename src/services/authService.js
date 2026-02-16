@@ -1,35 +1,64 @@
-import api from '../utils/api';
+// Authentication Service
+// Handles all authentication-related API calls
 
-const AUTH_ENDPOINTS = {
-    SIGNIN: '/staff/auth/signin/',
-    SIGNUP: '/staff/auth/signup/',
-    CHECK: '/staff/auth/check/',
-};
+import { apiRequest } from '../lib/api.js';
+import { API_ENDPOINTS } from '../lib/constants.js';
 
-/**
- * Authentication service for API calls
- */
 export const authService = {
     /**
-     * Sign in user
+     * Staff signup
+     * @param {Object} userData - User registration data
+     * @returns {Promise<Object>} - Response with user and token
      */
-    signIn: async (email, password) => {
-        return api.post(AUTH_ENDPOINTS.SIGNIN, { email, password });
+    signUp: async (userData) => {
+        return await apiRequest(API_ENDPOINTS.SIGN_UP, {
+            method: 'POST',
+            body: userData,
+        });
     },
 
     /**
-     * Sign up new user
+     * Staff signin
+     * @param {Object} credentials - { email, password }
+     * @returns {Promise<Object>} - Response with user, token, and outlet
      */
-    signUp: async (name, email, password, outletCode) => {
-        return api.post(AUTH_ENDPOINTS.SIGNUP, { name, email, password, outletCode });
+    signIn: async (credentials) => {
+        const response = await apiRequest(API_ENDPOINTS.SIGN_IN, {
+            method: 'POST',
+            body: credentials,
+        });
+
+        // Store token in localStorage
+        if (response && response.token) {
+            localStorage.setItem('token', response.token);
+        }
+
+        return response;
     },
 
     /**
-     * Check if session is valid
+     * Sign out current user
+     * @returns {Promise<Object>} - Response confirming signout
      */
-    checkSession: async () => {
-        return api.get(AUTH_ENDPOINTS.CHECK);
+    signOut: async () => {
+        const response = await apiRequest(API_ENDPOINTS.SIGN_OUT, {
+            method: 'POST',
+        });
+
+        // Clear token and outlet details from localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('outletDetails');
+
+        return response;
+    },
+
+    /**
+     * Check current authentication status
+     * @returns {Promise<Object>} - Response with current user data
+     */
+    checkAuth: async () => {
+        return await apiRequest(API_ENDPOINTS.CHECK_AUTH, {
+            method: 'GET',
+        });
     },
 };
-
-export default authService;

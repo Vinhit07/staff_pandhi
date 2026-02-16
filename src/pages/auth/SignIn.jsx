@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 export const SignIn = () => {
     const navigate = useNavigate();
-    const { login, loading, error, clearError } = useAuth();
+    const { signIn, loading, error, clearError } = useAuth();
 
     const [formData, setFormData] = useState({
         email: '',
@@ -48,20 +48,19 @@ export const SignIn = () => {
 
         if (!validateForm()) return;
 
-        const result = await login(formData.email, formData.password);
-
-        if (result.success) {
+        try {
+            await signIn(formData);
             toast.success('Welcome back!');
             navigate(ROUTES.DASHBOARD);
-        } else {
-            toast.error(result.error || 'Login failed');
+        } catch (err) {
+            toast.error(err.message || 'Login failed');
         }
     };
 
     const fillDemoCredentials = () => {
         setFormData({
-            email: 'staff@hungerbox.com',
-            password: 'password',
+            email: 'vinith11107@gmail.com',
+            password: 'Vinhit07&',
         });
         setFormErrors({});
     };

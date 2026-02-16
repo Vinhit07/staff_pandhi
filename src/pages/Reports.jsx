@@ -10,6 +10,8 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useAuth } from '../hooks/useAuth';
+import { reportService } from '../services';
 
 // Chart colors using Admin app theme
 const CHART_COLORS = {
@@ -23,42 +25,19 @@ const CHART_COLORS = {
     chart5: '#D7488E',
 };
 
-// Mock chart data generators
-const generateSalesTrend = (from, to) => {
-    const data = [];
-    let current = dayjs(from);
-    const end = dayjs(to);
-    while (current.isBefore(end) || current.isSame(end, 'day')) {
-        data.push({
-            date: current.format('MM/DD'),
-            revenue: Math.floor(Math.random() * 15000) + 5000,
-        });
-        current = current.add(1, 'day');
+// Convert delivery slot enum to readable label
+const formatDeliverySlot = (slot) => {
+    if (!slot) return slot;
+    const match = slot.match(/SLOT_(\d+)_(\d+)/);
+    if (match) {
+        return `${match[1]}:00 - ${match[2]}:00`;
     }
-    return data;
+    return slot;
 };
 
-const generateOrderTypeBreakdown = () => [
-    { name: 'App Orders', value: 456, color: CHART_COLORS.primary },
-    { name: 'Manual Orders', value: 234, color: CHART_COLORS.secondary },
-];
-
-const generateCategoryBreakdown = () => [
-    { name: 'Meals', value: 45, color: CHART_COLORS.chart1 },
-    { name: 'Starters', value: 25, color: CHART_COLORS.chart2 },
-    { name: 'Beverages', value: 20, color: CHART_COLORS.chart3 },
-    { name: 'Desserts', value: 10, color: CHART_COLORS.chart4 },
-];
-
-const generateDeliveryTimeOrders = () => [
-    { slot: '11-12 PM', orders: 45 },
-    { slot: '12-1 PM', orders: 85 },
-    { slot: '1-2 PM', orders: 120 },
-    { slot: '2-3 PM', orders: 65 },
-    { slot: '3-4 PM', orders: 35 },
-];
-
 export const Reports = () => {
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
     const reportRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -73,18 +52,59 @@ export const Reports = () => {
 
     useEffect(() => {
         loadData();
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, outletId]);
 
     const loadData = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 800));
+        try {
+            const [salesData, categoryData, orderTypeData, deliveryData] = await Promise.all([
+                reportService.getSalesTrend(outletId, { from: fromDate, to: toDate }),
+                reportService.getCategoryBreakdown(outletId, { from: fromDate, to: toDate }),
+                reportService.getOrderTypeBreakdown(outletId, { from: fromDate, to: toDate }),
+                reportService.getDeliveryTimeOrders(outletId, { from: fromDate, to: toDate }),
+            ]);
 
-        setSalesTrend(generateSalesTrend(fromDate, toDate));
-        setOrderTypeBreakdown(generateOrderTypeBreakdown());
-        setCategoryBreakdown(generateCategoryBreakdown());
-        setDeliveryTimeOrders(generateDeliveryTimeOrders());
+            setSalesTrend(Array.isArray(salesData) ? salesData : salesData.salesTrend || []);
 
-        setLoading(false);
+            // FIX: Normalize category data to ensure a "value" key exists for the Pie chart
+            const rawCategories = Array.isArray(categoryData) ? categoryData : (categoryData.breakdown || []);
+            const categoriesWithColors = rawCategories.map((cat, idx) => ({
+                ...cat,
+                // Ensure there is a 'value' property for Recharts to read
+                value: Number(cat.value || cat.count || cat.revenue || 0),
+                // Ensure there is a 'name' property for the legend/label
+                name: cat.categoryName || cat.name || "Unknown",
+                color: Object.values(CHART_COLORS)[idx % 8],
+            }));
+            setCategoryBreakdown(categoriesWithColors);
+
+            // Normalize Order type to ensure 'value' key exists
+            const rawOrderTypes = Array.isArray(orderTypeData) ? orderTypeData : (orderTypeData.breakdown || []);
+            const orderTypesWithColors = rawOrderTypes.map((type, idx) => ({
+                ...type,
+                value: Number(type.value || type.count || 0),
+                name: type.type || type.name || "Unknown",
+                color: idx === 0 ? CHART_COLORS.primary : CHART_COLORS.secondary,
+            }));
+            setOrderTypeBreakdown(orderTypesWithColors);
+
+            const rawDelivery = Array.isArray(deliveryData) ? deliveryData : deliveryData.orders || [];
+            setDeliveryTimeOrders(rawDelivery.map(item => ({
+                ...item,
+                slot: formatDeliverySlot(item.slot) || item.slot,
+            })));
+
+        } catch (error) {
+            console.error('Error loading report data:', error);
+            toast.error('Failed to load reports');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const setQuickRange = (days) => {
@@ -146,7 +166,6 @@ export const Reports = () => {
 
     return (
         <div className="space-y-6">
-            {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Reports & Analytics</h1>
@@ -158,59 +177,50 @@ export const Reports = () => {
                 </Button>
             </div>
 
-            {/* Date Range Controls */}
-            <Card>
-                <CardContent className="py-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex gap-2">
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 7 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(7)}
-                            >
-                                7 Days
-                            </Button>
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 30 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(30)}
-                            >
-                                30 Days
-                            </Button>
-                            <Button
-                                variant={dayjs(toDate).diff(fromDate, 'day') === 90 ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setQuickRange(90)}
-                            >
-                                90 Days
-                            </Button>
-                        </div>
+            <div className="flex flex-wrap items-center gap-4">
+                <h3>Select Date Range</h3>
+                <div className="flex gap-2">
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 7 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(7)}
+                    >
+                        7 Days
+                    </Button>
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 30 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(30)}
+                    >
+                        30 Days
+                    </Button>
+                    <Button
+                        variant={dayjs(toDate).diff(fromDate, 'day') === 90 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickRange(90)}
+                    >
+                        90 Days
+                    </Button>
+                </div>
 
-                        <div className="flex items-center gap-2 ml-auto">
-                            <Calendar className="h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
-                  focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                <div className="flex items-center gap-2 ml-auto">
+                    <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                </div>
+            </div>
 
-            {/* Charts */}
-            <div ref={reportRef} className="space-y-6 bg-card p-4 rounded-xl border-2 border-border">
-                {/* Row 1: Sales Trend + Order Type */}
+            <div ref={reportRef} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                         <CardHeader>
@@ -243,7 +253,6 @@ export const Reports = () => {
                                         labelLine={false}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={100}
-                                        fill="#8884d8"
                                         dataKey="value"
                                     >
                                         {orderTypeBreakdown.map((entry, index) => (
@@ -258,7 +267,6 @@ export const Reports = () => {
                     </Card>
                 </div>
 
-                {/* Row 2: Category + Delivery Time */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                         <CardHeader>
@@ -274,7 +282,6 @@ export const Reports = () => {
                                         labelLine={false}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={100}
-                                        fill="#8884d8"
                                         dataKey="value"
                                     >
                                         {categoryBreakdown.map((entry, index) => (

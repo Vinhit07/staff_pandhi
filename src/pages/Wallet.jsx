@@ -1,24 +1,24 @@
-import { useState } from 'react';
-import { RefreshCw, Search, Plus, Wallet as WalletIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, Search, Plus, WalletIcon, Loader2, Calendar } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge, Button, Modal, Input } from '../components/ui';
 import { formatCurrency, formatDate } from '../utils/constants';
 import toast from 'react-hot-toast';
+import dayjs from 'dayjs';
+import { useAuth } from '../hooks/useAuth';
+import { walletService } from '../services';
 
-// Mock recharge history
-const MOCK_RECHARGES = [
-    { id: 'TXN001', customerId: 1, customerName: 'Rahul Sharma', date: '2026-01-28', amount: 500, method: 'CASH' },
-    { id: 'TXN002', customerId: 2, customerName: 'Priya Patel', date: '2026-01-28', amount: 1000, method: 'UPI' },
-    { id: 'TXN003', customerId: 3, customerName: 'Amit Kumar', date: '2026-01-27', amount: 750, method: 'CARD' },
-    { id: 'TXN004', customerId: 4, customerName: 'Sneha Reddy', date: '2026-01-27', amount: 300, method: 'CASH' },
-    { id: 'TXN005', customerId: 5, customerName: 'Vikram Singh', date: '2026-01-26', amount: 2000, method: 'UPI' },
-];
 
 export const Wallet = () => {
-    const [recharges, setRecharges] = useState(MOCK_RECHARGES);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(false);
+    const { outlet } = useAuth();
+    const outletId = outlet?.id;
 
-    // Recharge modal
+    const [recharges, setRecharges] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [fromDate, setFromDate] = useState(dayjs().subtract(365, 'day').format('YYYY-MM-DD'));
+    const [toDate, setToDate] = useState(dayjs().format('YYYY-MM-DD'));
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
     const [rechargeModal, setRechargeModal] = useState(false);
     const [formData, setFormData] = useState({
         customerId: '',
@@ -28,19 +28,50 @@ export const Wallet = () => {
     });
     const [processing, setProcessing] = useState(false);
 
-    // Filter recharges
-    const filteredRecharges = recharges.filter(r =>
-        r.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Fetch recharge history on mount
+    useEffect(() => {
+        fetchRecharges();
+    }, [outletId]);
+
+    const fetchRecharges = async () => {
+        if (!outletId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const data = await walletService.getRechargeHistory(outletId);
+            setRecharges(data.transactions || []);
+        } catch (error) {
+            console.error('Error fetching recharges:', error);
+            toast.error('Failed to load recharge history');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Quick date selections
+    const setQuickDate = (days) => {
+        setToDate(dayjs().format('YYYY-MM-DD'));
+        setFromDate(dayjs().subtract(days, 'day').format('YYYY-MM-DD'));
+    };
+
+    // Filter recharges by search and date range
+    const filteredRecharges = recharges.filter(r => {
+        const matchesSearch = r.id?.toString().includes(searchTerm.toLowerCase()) ||
+            r.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const rechargeDate = dayjs(r.createdAt).format('YYYY-MM-DD');
+        const matchesDate = rechargeDate >= fromDate && rechargeDate <= toDate;
+
+        return matchesSearch && matchesDate;
+    });
 
     // Handle refresh
     const handleRefresh = () => {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            toast.success('Data refreshed');
-        }, 500);
+        setRefreshing(true);
+        fetchRecharges().finally(() => setRefreshing(false));
     };
 
     // Handle form change
@@ -62,24 +93,26 @@ export const Wallet = () => {
             return;
         }
 
-        setProcessing(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            setProcessing(true);
+            await walletService.addRecharge({
+                outletId: parseInt(outletId),
+                customerId: parseInt(formData.customerId),
+                amount: amount,
+                paymentMethod: formData.method,
+                notes: formData.notes,
+            });
 
-        const newRecharge = {
-            id: `TXN${String(recharges.length + 1).padStart(3, '0')}`,
-            customerId: parseInt(formData.customerId),
-            customerName: `Customer ${formData.customerId}`,
-            date: new Date().toISOString().split('T')[0],
-            amount: amount,
-            method: formData.method,
-        };
-
-        setRecharges(prev => [newRecharge, ...prev]);
-
-        toast.success(`Wallet recharged with ${formatCurrency(amount)}`);
-        setRechargeModal(false);
-        setFormData({ customerId: '', amount: '', method: 'CASH', notes: '' });
-        setProcessing(false);
+            toast.success(`Wallet recharged with ${formatCurrency(amount)}`);
+            setRechargeModal(false);
+            setFormData({ customerId: '', amount: '', method: 'CASH', notes: '' });
+            fetchRecharges(); // Refresh list
+        } catch (error) {
+            console.error('Error recharging wallet:', error);
+            toast.error('Failed to recharge wallet');
+        } finally {
+            setProcessing(false);
+        }
     };
 
     // Get method badge variant
@@ -112,12 +145,12 @@ export const Wallet = () => {
                     <CardHeader className="pb-3">
                         <CardDescription>Today's Recharges</CardDescription>
                         <CardTitle className="text-3xl text-primary">
-                            {formatCurrency(recharges.filter(r => r.date === '2026-01-28').reduce((sum, r) => sum + r.amount, 0))}
+                            {formatCurrency(recharges.reduce((sum, r) => sum + (r.amount || 0), 0))}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-xs text-muted-foreground">
-                            {recharges.filter(r => r.date === '2026-01-28').length} transactions
+                            {recharges.length} transactions
                         </p>
                     </CardContent>
                 </Card>
@@ -125,9 +158,23 @@ export const Wallet = () => {
                 <Card>
                     <CardHeader className="pb-3">
                         <CardDescription>This Week</CardDescription>
-                        <CardTitle className="text-3xl text-secondary">
-                            {formatCurrency(recharges.reduce((sum, r) => sum + r.amount, 0))}
-                        </CardTitle>
+                        <CardTitle className="text-3xl text-foreground">
+                            {formatCurrency(
+                                recharges
+                                    .filter(r => {
+                                        const date = new Date(r.createdAt);
+                                        const now = new Date();
+
+                                        const startOfWeek = new Date(now);
+                                        const day = now.getDay();
+                                        const diff = day === 0 ? 6 : day - 1;
+                                        startOfWeek.setDate(now.getDate() - diff);
+                                        startOfWeek.setHours(0, 0, 0, 0);
+
+                                        return date >= startOfWeek && date <= now;
+                                    })
+                                    .reduce((sum, r) => sum + (r.amount || 0), 0)
+                            )}                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-xs text-muted-foreground">
@@ -150,39 +197,63 @@ export const Wallet = () => {
             </div>
 
             {/* Recharge History */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recharge History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {/* Filters */}
-                    <div className="flex flex-wrap gap-4 mb-4">
-                        <div className="relative flex-1 min-w-[250px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Search by Transaction ID or Name..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground
+            <h1 className="text-xl font-bold text-foreground">Recharge History</h1>
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+                <div className="relative flex-1 min-w-[250px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Search by Transaction ID or Name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border-2 border-input rounded-lg bg-background text-foreground
                   placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                        </div>
-                        <Button variant="ghost" onClick={handleRefresh}>
-                            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-                        </Button>
-                    </div>
+                    />
+                </div>
 
+                {/* Quick Date Buttons */}
+                <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(0)}>Today</Button>
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(7)}>7 Days</Button>
+                    <Button size="sm" variant="outline" onClick={() => setQuickDate(30)}>30 Days</Button>
+                </div>
+
+                {/* Date Range */}
+                <div className="flex items-center gap-2">
+                    <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                  focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="px-3 py-2 border-2 border-input rounded-lg text-sm bg-background text-foreground
+                  focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                </div>
+
+                <Button variant="ghost" onClick={handleRefresh}>
+                    <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+            </div>
+            <Card>
+                <CardContent>
                     {/* Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-muted/50">
+                            <thead className="bg-muted/50 border-b border-gray-200">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Transaction ID</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Customer</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Method</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Transaction ID</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Method</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Amount</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -191,7 +262,7 @@ export const Wallet = () => {
                                         <tr key={recharge.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3 font-mono font-medium text-foreground">#{recharge.id}</td>
                                             <td className="px-4 py-3 text-foreground">{recharge.customerName}</td>
-                                            <td className="px-4 py-3 text-muted-foreground">{formatDate(recharge.date)}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">{formatDate(recharge.createdAt)}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={getMethodVariant(recharge.method)}>{recharge.method}</Badge>
                                             </td>
