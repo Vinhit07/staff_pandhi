@@ -243,23 +243,23 @@ export const Dashboard = () => {
                     ))
                 ) : (
                     stats.map((stat, index) => (
-    <Card key={index}>
-        <CardHeader className="pb-2">
-            {/* Changed from CardDescription to a bold h3 for a bigger, punchier title */}
-            <h3 className="text-lg font-bold text-foreground mb-1">
-                {stat.title}
-            </h3>
-            <CardTitle className={`text-3xl font-extrabold ${stat.color}`}>
-                {stat.value}
-            </CardTitle>
-        </CardHeader>
-        <CardContent>
-            <p className="text-xs text-muted-foreground font-medium">
-                {stat.trend}
-            </p>
-        </CardContent>
-    </Card>
-))
+                        <Card key={index}>
+                            <CardHeader className="pb-2">
+                                {/* Changed from CardDescription to a bold h3 for a bigger, punchier title */}
+                                <h3 className="text-lg font-bold text-foreground mb-1">
+                                    {stat.title}
+                                </h3>
+                                <CardTitle className={`text-3xl font-extrabold ${stat.color}`}>
+                                    {stat.value}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-xs text-muted-foreground font-medium">
+                                    {stat.trend}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))
                 )}
             </div>
 
@@ -276,19 +276,19 @@ export const Dashboard = () => {
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="pb-2">
+                {/* <Card>
+                    { <CardHeader className="pb-2">
                         <CardTitle className="text-base">Peak Order Time</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm font-medium text-foreground">
                             {homeLoading ? '...' : (homeData?.peakSlot || 'N/A')}
                         </p>
-                    </CardContent>
-                </Card>
+                    </CardContent> }
+                </Card> */}
 
                 <Card>
-                    <CardHeader className="pb-2">
+                    <CardHeader className="pb-2 ">
                         <CardTitle className="text-base">Wallet Recharges</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -377,17 +377,9 @@ export const Dashboard = () => {
                                             key={index}
                                             className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedItems.includes(item.id)}
-                                                    onChange={() => handleItemSelection(item.id)}
-                                                    className="w-4 h-4"
-                                                />
-                                                <div>
-                                                    <p className="font-medium text-foreground text-sm">{item.productName}</p>
-                                                    <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                                                </div>
+                                            <div>
+                                                <p className="font-medium text-foreground text-sm">{item.productName}</p>
+                                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-semibold text-foreground text-sm">
@@ -407,25 +399,6 @@ export const Dashboard = () => {
                                     <span className="text-xl font-bold text-primary">
                                         {formatCurrency(selectedOrder.total)}
                                     </span>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="default"
-                                        onClick={() => handleOrderAction('delivered')}
-                                        disabled={selectedItems.length === 0}
-                                        className="flex-1"
-                                    >
-                                        Deliver Selected
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={() => handleOrderAction('cancel')}
-                                        className="flex-1"
-                                    >
-                                        Cancel Order
-                                    </Button>
                                 </div>
 
                                 <Button variant="secondary" onClick={() => setSelectedOrder(null)} className="w-full">

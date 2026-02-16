@@ -57,18 +57,18 @@ const menuItems = [
         icon: Wallet,
         permission: null,
     },
-    {
-        path: ROUTES.REPORTS,
-        label: 'Reports',
-        icon: BarChart3,
-        permission: PERMISSIONS.REPORTS,
-    },
-    {
-        path: ROUTES.SETTINGS,
-        label: 'Settings',
-        icon: Settings,
-        permission: null,
-    },
+    // {
+    //     path: ROUTES.REPORTS,
+    //     label: 'Reports',
+    //     icon: BarChart3,
+    //     permission: PERMISSIONS.REPORTS,
+    // },
+    // {
+    //     path: ROUTES.SETTINGS,
+    //     label: 'Settings',
+    //     icon: Settings,
+    //     permission: null,
+    // },
 ];
 
 export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {

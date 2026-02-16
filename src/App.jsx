@@ -19,7 +19,7 @@ import OrderHistory from './pages/OrderHistory';
 import Inventory from './pages/Inventory';
 import Wallet from './pages/Wallet';
 import Reports from './pages/Reports';
-import Settings from './pages/Settings';
+// import Settings from './pages/Settings';
 
 function App() {
     return (
@@ -87,8 +87,8 @@ function App() {
                     }
                 />
 
-                {/* Settings - accessible to all */}
-                <Route path="settings" element={<Settings />} />
+                {/* Settings - commented out */}
+                {/* <Route path="settings" element={<Settings />} /> */}
             </Route>
 
             {/* Catch-all redirect */}

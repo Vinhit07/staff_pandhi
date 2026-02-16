@@ -220,7 +220,7 @@ export const Notifications = () => {
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className="font-bold text-foreground text-lg">#{order.id}</span>
-                                            <Badge variant="warning">{order.slot}</Badge>
+                                            {/* <Badge variant="warning">{order.slot}</Badge> */}
                                         </div>
                                         <p className="font-medium text-foreground">{order.customer}</p>
                                         <div className="text-sm text-muted-foreground mt-1">

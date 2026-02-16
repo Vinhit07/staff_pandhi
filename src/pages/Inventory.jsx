@@ -139,12 +139,12 @@ export const Inventory = () => {
                 <Button size="sm" variant={activeTab === 'stock' ? 'default' : 'outline'} onClick={() => setActiveTab('stock')}>
                     <Package className="h-4 w-4" /> Stock Availability
                 </Button>
-                <Button size="sm" variant={activeTab === 'history' ? 'default' : 'outline'} onClick={() => setActiveTab('history')}>
+                {/* <Button size="sm" variant={activeTab === 'history' ? 'default' : 'outline'} onClick={() => setActiveTab('history')}>
                     <History className="h-4 w-4" /> Stock History
-                </Button>
+                </Button> */}
             </div>
 
-            {activeTab === 'stock' ? (
+            {activeTab === 'stock' && (
                 <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="relative flex-1 min-w-[200px]">
@@ -180,7 +180,7 @@ export const Inventory = () => {
                                         {/* Header Info */}
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="space-y-1">
-                                                
+
                                                 <h3 className="font-bold text-lg text-foreground capitalize leading-tight mt-4">
                                                     {item.name}
                                                 </h3>
@@ -188,26 +188,26 @@ export const Inventory = () => {
                                                     {item.category || 'N/A'}
                                                 </p>
                                             </div>
-                                    </div>
+                                        </div>
 
-                                    {/* Manual Order Style Stock Bar */}
-                                    <div className="space-y-1.5 mb-5">
-                                        <div className="flex justify-between text-[11px] text-muted-foreground">
-                                            <span className="font-medium">Current Stock</span>
-                                            <span className="font-bold text-foreground bg-muted px-2 py-0.5 rounded">
-                                                {item.quantity} units
-                                            </span>
+                                        {/* Manual Order Style Stock Bar */}
+                                        <div className="space-y-1.5 mb-5">
+                                            <div className="flex justify-between text-[11px] text-muted-foreground">
+                                                <span className="font-medium">Current Stock</span>
+                                                <span className="font-bold text-foreground bg-muted px-2 py-0.5 rounded">
+                                                    {item.quantity} units
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-500 ${getStockColorClass(item.quantity, item.threshold)}`}
+                                                    style={{ width: `${Math.min((item.quantity / (item.threshold * 2 || 1)) * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground italic">
+                                                Min required: {item.threshold} units
+                                            </p>
                                         </div>
-                                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                            <div 
-                                                className={`h-full transition-all duration-500 ${getStockColorClass(item.quantity, item.threshold)}`}
-                                                style={{ width: `${Math.min((item.quantity / (item.threshold * 2 || 1)) * 100, 100)}%` }}
-                                            />
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground italic">
-                                            Min required: {item.threshold} units
-                                        </p>
-                                    </div>
 
                                         {/* Action Buttons Updated to Primary Yellow */}
                                         <div className="flex gap-2">
@@ -224,8 +224,10 @@ export const Inventory = () => {
                         </div>
                     )}
                 </div>
-            ) : (
-                /* History Table */
+            )}
+
+            {/* Stock History Table - commented out
+            {activeTab === 'history' && (
                 <Card>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
@@ -257,6 +259,7 @@ export const Inventory = () => {
                     </CardContent>
                 </Card>
             )}
+            */}
 
             <Modal
                 isOpen={stockModal}
