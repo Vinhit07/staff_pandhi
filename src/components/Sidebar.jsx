@@ -51,12 +51,12 @@ const menuItems = [
         icon: Package,
         permission: PERMISSIONS.INVENTORY,
     },
-    {
-        path: ROUTES.WALLET,
-        label: 'Wallet',
-        icon: Wallet,
-        permission: null,
-    },
+    // {
+    //     path: ROUTES.WALLET,
+    //     label: 'Wallet',
+    //     icon: Wallet,
+    //     permission: null,
+    // },
     // {
     //     path: ROUTES.REPORTS,
     //     label: 'Reports',

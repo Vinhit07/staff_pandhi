@@ -68,14 +68,28 @@ export const OrderHistory = () => {
         let matchesDate = true;
 
         if (selectedFilter === '0') {
-            // Today only
-            matchesDate = orderDate.isSame(today, 'day');
-        } else if (selectedFilter === '7') {
+            // Today only:
+            // 1. Created today (and not a future preorder)
+            // 2. OR Delivery date is today (regardless of creation date)
+            const delivery = order.deliveryDate ? dayjs.utc(order.deliveryDate) : null;
+
+            const createdToday = orderDate.isSame(today, 'day');
+            const isDeliveryToday = delivery ? delivery.isSame(today, 'day') : false;
+            const isFuturePreorder = delivery ? delivery.isAfter(today, 'day') : false;
+
+            matchesDate = isDeliveryToday || (createdToday && !isFuturePreorder);
+        }
+        /* else if (selectedFilter === '7') {
             // Last 7 days
             matchesDate = orderDate.isAfter(today.subtract(7, 'day'));
-        } else if (selectedFilter === '30') {
+        } */
+        else if (selectedFilter === '30') {
             // Last 30 days
             matchesDate = orderDate.isAfter(today.subtract(30, 'day'));
+        } else if (selectedFilter === 'preorder') {
+            // Future delivery dates (pre-orders)
+            const delivery = order.deliveryDate ? dayjs.utc(order.deliveryDate) : null;
+            matchesDate = delivery ? delivery.isAfter(today, 'day') : false;
         }
 
         return matchesSearch && matchesDate;
@@ -163,11 +177,19 @@ export const OrderHistory = () => {
                     </Button>
                     <Button
                         size="sm"
+                        variant={selectedFilter === 'preorder' ? 'default' : 'outline'}
+                        onClick={() => setQuickDate('preorder')}
+                    >
+                        Preorder
+                    </Button>
+
+                    {/* <Button
+                        size="sm"
                         variant={selectedFilter === '7' ? 'default' : 'outline'}
                         onClick={() => setQuickDate(7)}
                     >
                         7 Days
-                    </Button>
+                    </Button> */}
                     {/* <Button
                         size="sm"
                         variant={selectedFilter === '30' ? 'default' : 'outline'}
@@ -206,7 +228,11 @@ export const OrderHistory = () => {
                                         <tr key={order.id} className=" hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3 font-medium text-sm">{order.orderNumber}</td>
                                             <td className="px-4 py-3 text-sm">{order.customerName}</td>
-                                            <td className="px-4 py-3 text-muted-foreground">{formatDateTime(order.createdAt)}</td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {selectedFilter === 'preorder'
+                                                    ? `Delivery: ${dayjs(order.deliveryDate).format('MMM D, YYYY')}`
+                                                    : formatDateTime(order.createdAt)}
+                                            </td>
                                             <td className="px-4 py-3 font-semibold text-primary">{formatCurrency(order.totalAmount)}</td>
                                             <td className="px-4 py-3">
                                                 <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>

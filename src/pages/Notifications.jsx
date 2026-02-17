@@ -53,13 +53,26 @@ export const Notifications = () => {
             // apiRequest returns data directly: {orders: [...], total, totalPages, currentPage}
             if (response && response.orders) {
                 // Transform backend data to match UI format
-                const formattedOrders = (Array.isArray(response.orders) ? response.orders : []).map(order => ({
-                    id: order.billNumber || order.orderId || order.id,
-                    customer: order.customerName || order.customer || 'Unknown',
-                    items: order.items?.map(item => `${item.name || item.product} x${item.quantity}`) || [],
-                    total: order.totalAmount || order.total || 0,
-                    slot: order.deliverySlot || order.slot || 'N/A'
-                }));
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const formattedOrders = (Array.isArray(response.orders) ? response.orders : [])
+                    .filter(order => {
+                        // Filter out future delivery dates
+                        if (order.deliveryDate) {
+                            const delivery = new Date(order.deliveryDate);
+                            delivery.setHours(0, 0, 0, 0);
+                            return delivery <= today;
+                        }
+                        return true;
+                    })
+                    .map(order => ({
+                        id: order.billNumber || order.orderId || order.id,
+                        customer: order.customerName || order.customer || 'Unknown',
+                        items: order.items?.map(item => `${item.name || item.product} x${item.quantity}`) || [],
+                        total: order.totalAmount || order.total || 0,
+                        slot: order.deliverySlot || order.slot || 'N/A'
+                    }));
                 setOrders(formattedOrders);
             }
         } catch (error) {

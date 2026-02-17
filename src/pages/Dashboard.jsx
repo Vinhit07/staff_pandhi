@@ -68,8 +68,22 @@ export const Dashboard = () => {
 
             try {
                 setOrdersLoading(true);
-                const data = await orderService.getRecentOrders(outletId, { page: 1, limit: 5 });
-                setOrders(data.orders || []);
+                const data = await orderService.getRecentOrders(outletId, { page: 1, limit: 50 });
+
+                // Filter out future preorders
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const validOrders = (data.orders || []).filter(order => {
+                    if (order.deliveryDate) {
+                        const delivery = new Date(order.deliveryDate);
+                        delivery.setHours(0, 0, 0, 0);
+                        return delivery <= today;
+                    }
+                    return true;
+                });
+
+                setOrders(validOrders.slice(0, 5));
             } catch (error) {
                 console.error('Error fetching recent orders:', error);
                 toast.error('Failed to load recent orders');
@@ -187,13 +201,13 @@ export const Dashboard = () => {
 
     // Stats configuration
     const stats = homeData ? [
-        {
-            title: 'Total Revenue',
-            value: formatCurrency(homeData.totalRevenue || 0),
-            icon: DollarSign,
-            trend: `Today's earnings`,
-            color: 'text-primary'
-        },
+        // {
+        //     title: 'Total Revenue',
+        //     value: formatCurrency(homeData.totalRevenue || 0),
+        //     icon: DollarSign,
+        //     trend: `Today's earnings`,
+        //     color: 'text-primary'
+        // },
         {
             title: 'App Orders',
             value: homeData.appOrders || 0,
@@ -265,7 +279,7 @@ export const Dashboard = () => {
 
             {/* Additional Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
+                {/* <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Best Seller</CardTitle>
                     </CardHeader>
@@ -274,7 +288,7 @@ export const Dashboard = () => {
                             {homeLoading ? '...' : (homeData?.bestSellerProduct?.name || 'N/A')}
                         </p>
                     </CardContent>
-                </Card>
+                </Card> */}
 
                 {/* <Card>
                     { <CardHeader className="pb-2">
@@ -287,7 +301,7 @@ export const Dashboard = () => {
                     </CardContent> }
                 </Card> */}
 
-                <Card>
+                {/* <Card>
                     <CardHeader className="pb-2 ">
                         <CardTitle className="text-base">Wallet Recharges</CardTitle>
                     </CardHeader>
@@ -296,7 +310,7 @@ export const Dashboard = () => {
                             {homeLoading ? '...' : formatCurrency(homeData?.totalRechargedAmount || 0)}
                         </p>
                     </CardContent>
-                </Card>
+                </Card> */}
             </div>
 
             {/* Order Lookup and Recent Orders */}
@@ -401,7 +415,7 @@ export const Dashboard = () => {
                                     </span>
                                 </div>
 
-                                <Button variant="secondary" onClick={() => setSelectedOrder(null)} className="w-full">
+                                <Button variant="primary" onClick={() => setSelectedOrder(null)} className="w-full">
                                     Back to Orders
                                 </Button>
                             </div>
