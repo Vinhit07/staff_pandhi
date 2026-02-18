@@ -73,7 +73,7 @@ export const SignIn = () => {
                     <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
                         <span className="text-4xl font-bold text-primary-foreground">H</span>
                     </div>
-                    <h1 className="text-4xl font-bold text-foreground mb-4">HungerBox Staff</h1>
+                    <h1 className="text-4xl font-bold text-foreground mb-4">Pandhi Staff</h1>
                     <p className="text-lg text-muted-foreground">
                         Manage orders, inventory, and customer service efficiently with our staff portal.
                     </p>
@@ -86,9 +86,9 @@ export const SignIn = () => {
                     {/* Mobile Logo */}
                     <div className="lg:hidden text-center mb-8">
                         <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl font-bold text-primary-foreground">H</span>
+                            <span className="text-3xl font-bold text-primary-foreground">P</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-foreground">HungerBox Staff</h1>
+                        <h1 className="text-2xl font-bold text-foreground">Pandhi Staff</h1>
                     </div>
 
                     <div className="bg-card rounded-xl border-2 border-border p-8 shadow-lg">
@@ -104,7 +104,7 @@ export const SignIn = () => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                placeholder="staff@hungerbox.com"
+                                placeholder="staff@pandhi.com"
                                 error={formErrors.email}
                                 autoComplete="email"
                             />
@@ -144,22 +144,6 @@ export const SignIn = () => {
                                 Sign In
                             </Button>
                         </form>
-
-                        {/* Demo Credentials */}
-                        <div className="mt-6 p-4 bg-accent/50 rounded-lg">
-                            <p className="text-xs font-medium text-accent-foreground mb-2">Demo Credentials:</p>
-                            <p className="text-xs text-muted-foreground">Email: staff@hungerbox.com</p>
-                            <p className="text-xs text-muted-foreground">Password: password</p>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={fillDemoCredentials}
-                                className="mt-2 w-full"
-                            >
-                                Use Demo Credentials
-                            </Button>
-                        </div>
 
                         <div className="mt-6 text-center">
                             <p className="text-sm text-muted-foreground">
