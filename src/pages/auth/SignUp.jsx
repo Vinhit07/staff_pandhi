@@ -84,11 +84,11 @@ export const SignUp = () => {
             <div className="hidden lg:flex lg:w-1/2 bg-sidebar items-center justify-center p-12">
                 <div className="max-w-md text-center">
                     <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-                        <span className="text-4xl font-bold text-primary-foreground">H</span>
+                        <span className="text-4xl font-bold text-primary-foreground">P</span>
                     </div>
                     <h1 className="text-4xl font-bold text-foreground mb-4">Join Our Team</h1>
                     <p className="text-lg text-muted-foreground">
-                        Create your staff account to access the HungerBox management portal.
+                        Create your staff account to access the Pandhi management portal.
                     </p>
                 </div>
             </div>
@@ -99,9 +99,9 @@ export const SignUp = () => {
                     {/* Mobile Logo */}
                     <div className="lg:hidden text-center mb-8">
                         <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl font-bold text-primary-foreground">H</span>
+                            <span className="text-3xl font-bold text-primary-foreground">P</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-foreground">HungerBox Staff</h1>
+                        <h1 className="text-2xl font-bold text-foreground">Pandhi Staff</h1>
                     </div>
 
                     <div className="bg-card rounded-xl border-2 border-border p-8 shadow-lg">
